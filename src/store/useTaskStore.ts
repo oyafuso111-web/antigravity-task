@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Task, Project, Folder, Recurrence, HomeBucket, Tag } from '../types';
+import { supabase } from '../lib/supabase';
 
 export type AppTab = 'list' | 'calendar' | 'timeline' | 'reports';
 export type ColumnId = 'name' | 'project' | 'time' | 'estimatedMinutes' | 'tags' | 'priority' | 'date' | 'createdAt';
@@ -20,7 +21,13 @@ interface TaskStore {
   highlightedTaskId: string | null;
   weekStartsOn: 0 | 1;
   
+  user: any | null;
+  
   // Actions
+  setUser: (user: any | null) => void;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+  
   setActiveProject: (id: string | null) => void;
   setActiveTab: (tab: AppTab) => void;
   setSettingsOpen: (isOpen: boolean) => void;
@@ -32,6 +39,7 @@ interface TaskStore {
   reorderColumns: (activeId: string, overId: string) => void;
   setColumnWidth: (colId: ColumnId, width: number) => void;
   
+  fetchInitialData: () => Promise<void>;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'accumulatedTime' | 'subtasks' | 'comments' | 'order' | 'description' | 'recurrence'> & { homeBucket?: HomeBucket | null }) => void;
   moveToSmartView: (taskId: string, targetViewId: string) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
@@ -158,7 +166,8 @@ const calculateNextOccurrence = (currentDate: string, recurrence: Recurrence): D
   return date;
 };
 
-export const useTaskStore = create<TaskStore>((set) => ({
+export const useTaskStore = create<TaskStore>((set, get) => ({
+  user: null,
   tasks: initialTasks,
   projects: initialProjects,
   folders: [{ id: 'f1', name: 'Work' }],
@@ -181,6 +190,37 @@ export const useTaskStore = create<TaskStore>((set) => ({
     priority: 100,
     date: 120,
     createdAt: 100
+  },
+
+  setUser: (user) => set({ user }),
+  
+  signInWithGoogle: async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+  },
+
+  signOut: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, tasks: [], projects: [], tags: [] });
+  },
+
+  fetchInitialData: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    const [tasksRes, projectsRes, tagsRes] = await Promise.all([
+      supabase.from('tasks').select('*').order('order', { ascending: true }),
+      supabase.from('projects').select('*'),
+      supabase.from('tags').select('*')
+    ]);
+
+    if (!tasksRes.error) set({ tasks: tasksRes.data || [] });
+    if (!projectsRes.error) set({ projects: projectsRes.data || [] });
+    if (!tagsRes.error) set({ tags: tagsRes.data || [] });
   },
 
   setActiveProject: (id) => set({ activeProjectId: id }),
@@ -218,7 +258,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
     columnWidths: { ...state.columnWidths, [colId]: Math.max(60, width) }
   })),
 
-  addTask: (taskData) => set((state) => {
+  addTask: async (taskData) => {
+    const { user } = get();
     const newTask: Task = {
       ...taskData,
       id: crypto.randomUUID(),
@@ -231,11 +272,19 @@ export const useTaskStore = create<TaskStore>((set) => ({
       dailyLogs: {},
       subtasks: [],
       comments: [],
-      order: state.tasks.length,
+      order: get().tasks.length,
       homeBucket: taskData.homeBucket || (taskData.dueDate ? null : 'inbox')
     };
-    return { tasks: [...state.tasks, newTask] };
-  }),
+
+    set((state) => ({ tasks: [...state.tasks, newTask] }));
+
+    if (user) {
+      await supabase.from('tasks').insert({
+        ...newTask,
+        user_id: user.id
+      });
+    }
+  },
 
   moveToSmartView: (taskId, targetViewId) => set((state) => {
     const now = new Date();
@@ -301,17 +350,38 @@ export const useTaskStore = create<TaskStore>((set) => ({
     };
   }),
 
-  updateTask: (id, updates) => set((state) => ({
-    tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t))
-  })),
+  updateTask: async (id, updates) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    }));
 
-  updateBulkTasksDate: (taskIds, dueDate) => set((state) => ({
-    tasks: state.tasks.map(t => taskIds.includes(t.id) ? { ...t, dueDate } : t)
-  })),
+    if (user) {
+      await supabase.from('tasks').update(updates).eq('id', id);
+    }
+  },
 
-  deleteTask: (id) => set((state) => ({
-    tasks: state.tasks.filter((t) => t.id !== id)
-  })),
+  updateBulkTasksDate: async (taskIds, dueDate) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => taskIds.includes(t.id) ? { ...t, dueDate } : t)
+    }));
+
+    if (user) {
+      await supabase.from('tasks').update({ dueDate }).in('id', taskIds);
+    }
+  },
+
+  deleteTask: async (id) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.filter((t) => t.id !== id)
+    }));
+
+    if (user) {
+      await supabase.from('tasks').delete().eq('id', id);
+    }
+  },
 
   toggleTaskCompletion: (id) => set((state) => {
     const task = state.tasks.find(t => t.id === id);

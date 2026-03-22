@@ -65,7 +65,20 @@ const DroppableProjectItem: React.FC<{
 };
 
 export const Sidebar: React.FC = () => {
-  const { projects, tags, activeProjectId, setActiveProject, setActiveTab, addProject, updateProject, updateTag, toggleProjectFavorite } = useTaskStore();
+  const { 
+    projects, 
+    tags, 
+    activeProjectId, 
+    setActiveProject, 
+    setActiveTab, 
+    addProject, 
+    updateProject, 
+    updateTag, 
+    toggleProjectFavorite,
+    user,
+    signInWithGoogle,
+    signOut
+  } = useTaskStore();
   const [isAdding, setIsAdding] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [smartViewExpanded, setSmartViewExpanded] = useState(false);
@@ -222,17 +235,42 @@ export const Sidebar: React.FC = () => {
         </ul>
       </div>
 
-      <div className="sidebar-section" style={{ marginTop: '16px', borderBottom: 'none' }}>
-        <h3 className="section-title">Archive</h3>
-        <ul className="nav-list">
-          <DroppableNavItem 
-            id="completed" 
-            label="完了したタスク" 
-            icon="✅" 
-            isActive={activeProjectId === 'completed'} 
-            onClick={() => handleNavClick('completed')} 
-          />
-        </ul>
+      <div className="sidebar-section" style={{ marginTop: 'auto', borderTop: '1px solid var(--border-color)', borderBottom: 'none', paddingTop: '16px' }}>
+        {user ? (
+          <div className="user-profile" style={{ padding: '0 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <img 
+                src={user.user_metadata.avatar_url} 
+                alt="avatar" 
+                style={{ width: '32px', height: '32px', borderRadius: '50%' }} 
+              />
+              <div style={{ overflow: 'hidden' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user.user_metadata.full_name}</div>
+                <div style={{ fontSize: '0.7rem', opacity: 0.6, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user.email}</div>
+              </div>
+            </div>
+            <button 
+              className="expand-btn" 
+              onClick={() => signOut()}
+              style={{ width: '100%', justifyContent: 'center', color: 'var(--priority-high)' }}
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: '0 8px' }}>
+            <button 
+              className="brand-bg brand-btn" 
+              onClick={() => signInWithGoogle()}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              <span>🔑</span> Googleでログイン
+            </button>
+            <p style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '8px', textAlign: 'center' }}>
+              クラウド同期を有効にするにはログインしてください
+            </p>
+          </div>
+        )}
       </div>
     </aside>
   );

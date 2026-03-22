@@ -8,6 +8,7 @@ import { ReportsView } from './components/ReportsView';
 import { SettingsModal } from './components/SettingsModal';
 import { TaskDetailView } from './components/TaskDetailView';
 import { useTaskStore } from './store/useTaskStore';
+import { supabase } from './lib/supabase';
 import { 
   DndContext, 
   pointerWithin,
@@ -34,8 +35,26 @@ function App() {
     selectedTaskId,
     setSelectedTaskId,
     clearSelection,
-    selectedTaskIds
+    selectedTaskIds,
+    setUser,
+    fetchInitialData
   } = useTaskStore();
+
+  useEffect(() => {
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchInitialData();
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchInitialData();
+    });
+
+    return () => subscription.unsubscribe();
+  }, [setUser, fetchInitialData]);
 
   const [, setTick] = useState(0);
 
