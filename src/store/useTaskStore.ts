@@ -454,15 +454,35 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     })
   })),
 
-  addProject: (name, color, explicitId, folderId = null) => set((state) => ({
-    projects: [...state.projects, { id: explicitId || crypto.randomUUID(), name, color, folderId, isFavorite: false }]
-  })),
+  addProject: async (name, color, explicitId, folderId = null) => {
+    const { user } = get();
+    const newProject: Project = { 
+      id: explicitId || crypto.randomUUID(), 
+      name, 
+      color, 
+      folderId, 
+      isFavorite: false,
+      createdAt: new Date().toISOString()
+    };
+    set((state) => ({
+      projects: [...state.projects, newProject]
+    }));
 
-  updateProject: (id, updates) => set((state) => ({
-    projects: state.projects.map(p => 
-      p.id === id ? { ...p, ...updates } : p
-    )
-  })),
+    if (user) {
+      await supabase.from('projects').insert({ ...newProject, user_id: user.id });
+    }
+  },
+
+  updateProject: async (id, updates) => {
+    const { user } = get();
+    set((state) => ({
+      projects: state.projects.map(p => p.id === id ? { ...p, ...updates } : p)
+    }));
+
+    if (user) {
+      await supabase.from('projects').update(updates).eq('id', id);
+    }
+  },
 
   toggleProjectFavorite: (projectId) => set((state) => ({
     projects: state.projects.map(p => p.id === projectId ? { ...p, isFavorite: !p.isFavorite } : p)
@@ -472,9 +492,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     folders: [...state.folders, { id: crypto.randomUUID(), name }]
   })),
 
-  addTag: (name, color, id) => set((state) => ({
-    tags: [...state.tags, { id: id || crypto.randomUUID(), name, color }]
-  })),
+  addTag: async (name, color, id) => {
+    const { user } = get();
+    const newTag: Tag = { 
+      id: id || crypto.randomUUID(), 
+      name, 
+      color,
+      createdAt: new Date().toISOString()
+    };
+    set((state) => ({
+      tags: [...state.tags, newTag]
+    }));
+
+    if (user) {
+      await supabase.from('tags').insert({ ...newTag, user_id: user.id });
+    }
+  },
 
   updateTag: (id, updates) => set((state) => ({
     tags: state.tags.map(t => t.id === id ? { ...t, ...updates } : t)
@@ -488,9 +521,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }))
   })),
 
-  moveTask: (taskId, newProjectId) => set((state) => ({
-    tasks: state.tasks.map(t => t.id === taskId ? { ...t, projectId: newProjectId } : t)
-  })),
+  moveTask: async (taskId, newProjectId) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => t.id === taskId ? { ...t, projectId: newProjectId } : t)
+    }));
+
+    if (user) {
+      await supabase.from('tasks').update({ project_id: newProjectId }).eq('id', taskId);
+    }
+  },
 
   reorderTasks: (activeId, overId) => set((state) => {
     const oldIndex = state.tasks.findIndex(t => t.id === activeId);
