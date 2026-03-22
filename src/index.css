@@ -1,0 +1,120 @@
+:root {
+  /* Brand Colors (Antigravity Gradient) */
+  --brand-gradient: linear-gradient(135deg, #8A2BE2, #4169E1);
+  --brand-solid: #6A44E1;
+  --brand-light: rgba(106, 68, 225, 0.1);
+
+  /* Light Theme (Default Asana-like) */
+  --bg-app: #FFFFFF;
+  --bg-sidebar: #2E2E30; /* Asana dark sidebar */
+  --bg-surface: #FFFFFF;
+  --bg-hover: #F0F0F0;
+  
+  --text-primary: #151b26;
+  --text-secondary: #6d6e71;
+  --text-sidebar: #A2A2A3;
+  --text-sidebar-hover: #FFFFFF;
+
+  --border-color: #E8ECEE;
+
+  /* Feedback Colors */
+  --status-complete: #25C26D;
+  --priority-1st: #E03E3E;
+  --priority-high: #F06A6A;
+  --priority-mid: #E89A2D;
+  --priority-low: #6D6E71;
+
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Dark Theme overrides via media query */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg-app: #1A1C1E;
+    --bg-surface: #242628;
+    --bg-hover: #2D3033;
+    
+    --text-primary: #ECECEC;
+    --text-secondary: #A0A0A0;
+    
+    --border-color: #383A3D;
+  }
+}
+
+/* Dark Theme overrides via class (for auto 18:00 logic) */
+:root.dark {
+  --bg-app: #1A1C1E;
+  --bg-surface: #242628;
+  --bg-hover: #2D3033;
+  
+  --text-primary: #ECECEC;
+  --text-secondary: #A0A0A0;
+  
+  --border-color: #383A3D;
+}
+
+:root.light {
+  /* Enforce light theme */
+  --bg-app: #FFFFFF;
+  --bg-surface: #FFFFFF;
+  --bg-hover: #F0F0F0;
+  --text-primary: #151b26;
+  --text-secondary: #6d6e71;
+  --border-color: #E8ECEE;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Base Utility Classes */
+.brand-text {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-bg {
+  background: var(--brand-gradient);
+  color: white;
+}
+
+input, button, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: transform var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Global Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,312 @@
+.calendar-view {
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.calendar-nav h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.view-toggle {
+  display: flex;
+  background-color: var(--bg-surface);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.toggle-btn {
+  padding: 6px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.toggle-btn.active {
+  background-color: var(--brand-solid);
+  color: white;
+}
+
+.icon-btn {
+  padding: 6px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.cal-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 0.8125rem;
+  margin-left: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.clear-filter-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin-left: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.clear-filter-btn:hover {
+  color: var(--brand-solid);
+}
+
+.calendar-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr)); /* Force equal width ignoring content */
+  grid-template-rows: max-content; /* Ensure headers NEVER stretch */
+  grid-auto-rows: minmax(100px, auto); /* Implicit rows expand vertically to wrap their content */
+  gap: 1px;
+  background-color: var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.calendar-view.week .calendar-grid {
+  grid-auto-rows: minmax(100px, auto); /* Week view rows fill remaining space evenly */
+}
+
+.calendar-day-header {
+  background-color: var(--bg-surface);
+  height: max-content;
+  padding: 4px; /* Minimal vertical and horizontal padding */
+  text-align: center;
+  font-size: 0.7rem;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.calendar-cell {
+  background-color: var(--bg-surface);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+.calendar-cell:hover:not(.dimmed) {
+  box-shadow: inset 0 0 0 1px rgba(106, 68, 225, 0.2);
+}
+
+.calendar-cell.dimmed {
+  background-color: var(--bg-app);
+  color: var(--text-secondary);
+}
+
+.calendar-cell.drag-over {
+  background-color: rgba(110, 68, 225, 0.15);
+  box-shadow: inset 0 0 0 2px var(--brand-solid);
+}
+
+.calendar-cell.today .date-number {
+  background-color: var(--brand-solid);
+  color: white;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.calendar-cell.expanded {
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.date-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.date-number {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.cal-quick-add-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.calendar-cell:hover .cal-quick-add-btn {
+  opacity: 1;
+}
+
+.cal-quick-add-btn:hover {
+  color: var(--brand-solid);
+}
+
+.cal-quick-add-input {
+  width: 100%;
+  padding: 4px;
+  font-size: 0.75rem;
+  border: 1px solid var(--brand-solid);
+  border-radius: 4px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  outline: none;
+  margin-bottom: 2px;
+}
+
+.day-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  /* Removed overflow-y: auto to allow the grid row to expand with its content */
+}
+
+.calendar-task-pill {
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  background-color: var(--bg-hover);
+  border-radius: 4px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: grab;
+  border-left: 2px solid transparent;
+  transition: box-shadow var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
+  min-width: 0;
+  height: 22px;
+}
+
+.calendar-task-pill.is-dragging {
+  opacity: 0.85;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  transform: scale(1.02);
+  cursor: grabbing;
+  z-index: 50;
+}
+
+.cal-task-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0; /* CRITICAL: allows flex item to shrink and truncate text */
+}
+
+.cal-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem; /* Match text size */
+  line-height: 1;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.1s;
+  flex-shrink: 0; /* Ensure icon doesn't shrink */
+}
+
+.cal-complete-btn:hover {
+  color: var(--success);
+}
+
+.cal-detail-btn:hover {
+  color: var(--brand-solid);
+}
+
+.show-more-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 2px 4px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 4px;
+  margin-top: 2px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.show-more-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.calendar-task-pill:hover {
+  background-color: var(--border-color);
+  border-left-color: var(--brand-solid);
+  transform: translateY(-1px);
+}
+
+.priority-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

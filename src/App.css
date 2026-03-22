@@ -1,0 +1,59 @@
+:root {
+  --priority-1st: #E85D75;
+  --priority-high: #F06A6A;
+  --priority-mid: #E89A2D;
+  --priority-low: #9BA4B5;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 260px;
+  background-color: var(--bg-sidebar);
+  color: var(--text-sidebar);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  z-index: 10;
+  overflow-y: auto;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-app);
+  overflow: hidden;
+}
+
+.topbar {
+  height: 60px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background-color: var(--bg-surface);
+}
+
+.content-area {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.main-view-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+
+.main-view-container.with-detail {
+  box-shadow: inset -5px 0 10px rgba(0,0,0,0.02);
+}
