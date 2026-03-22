@@ -142,6 +142,7 @@ export const Topbar: React.FC = () => {
         priority: 'none',
         tagIds: [],
         dueDate: dueDate,
+        homeBucket: dueDate ? null : 'inbox',
       });
     }
   };

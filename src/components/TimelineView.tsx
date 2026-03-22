@@ -59,7 +59,7 @@ export const TimelineView: React.FC = () => {
                  <div className="timeline-task-name">
                     <span 
                       className="priority-dot" 
-                      style={{ backgroundColor: task.priority === 'high' ? 'var(--priority-high)' : task.priority === 'medium' ? 'var(--priority-med)' : 'var(--priority-low)' }}
+                      style={{ backgroundColor: task.priority === 'high' ? 'var(--priority-high)' : task.priority === 'mid' ? 'var(--priority-med)' : task.priority === 'low' ? 'var(--priority-low)' : 'transparent' }}
                     />
                    {task.title}
                  </div>
