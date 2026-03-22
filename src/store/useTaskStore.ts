@@ -355,8 +355,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
         return t;
       })
-    };
-  }),
+    }));
+
+    if (user) {
+      if (newTagToSync) {
+        await supabase.from('tags').insert({ ...newTagToSync, user_id: user.id });
+      }
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({
+          due_date: task.dueDate,
+          home_bucket: task.homeBucket,
+          tag_ids: task.tagIds
+        }).eq('id', taskId);
+      }
+    }
+  },
 
   updateTask: async (id, updates) => {
     const { user } = get();
