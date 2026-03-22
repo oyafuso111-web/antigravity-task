@@ -4,6 +4,7 @@ export interface Tag {
   id: string;
   name: string;
   color: string;
+  createdAt: string;
 }
 
 export interface Subtask {
@@ -55,6 +56,7 @@ export interface Project {
   name: string;
   color: string;
   isFavorite: boolean;
+  createdAt: string;
 }
 
 export interface Folder {
