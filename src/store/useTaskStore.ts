@@ -77,11 +77,11 @@ const getLocalDateStr = (d: Date = new Date()) => {
 };
 
 const initialProjects: Project[] = [
-  { id: 'p2', name: 'Project Alpha', color: '#F06A6A', folderId: 'f1', isFavorite: false }
+  { id: 'p2', name: 'Project Alpha', color: '#F06A6A', folderId: 'f1', isFavorite: false, createdAt: new Date().toISOString() }
 ];
 
 const initialTags: Tag[] = [
-  { id: 'tag1', name: 'Getting Started', color: '#E89A2D' }
+  { id: 'tag1', name: 'Getting Started', color: '#E89A2D', createdAt: new Date().toISOString() }
 ];
 
 const initialTasks: Task[] = [
@@ -286,22 +286,30 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  moveToSmartView: (taskId, targetViewId) => set((state) => {
+  moveToSmartView: async (taskId, targetViewId) => {
+    const { user } = get();
     const now = new Date();
-    let updatedTags = [...state.tags];
+    let updatedTags = [...get().tags];
     let waitingTagId: string | null = null;
+    let newTagToSync: Tag | null = null;
 
     if (targetViewId === 'p-waiting') {
       const tagName = '⏯️連絡待ち';
       let waitingTag = updatedTags.find(tag => tag.name === tagName);
       if (!waitingTag) {
-        waitingTag = { id: crypto.randomUUID(), name: tagName, color: '#6A44E1' };
+        waitingTag = { 
+          id: crypto.randomUUID(), 
+          name: tagName, 
+          color: '#6A44E1',
+          createdAt: now.toISOString()
+        };
         updatedTags.push(waitingTag);
+        newTagToSync = waitingTag;
       }
       waitingTagId = waitingTag.id;
     }
 
-    return {
+    set((state) => ({
       tags: updatedTags,
       tasks: state.tasks.map(t => {
         if (t.id !== taskId) return t;
