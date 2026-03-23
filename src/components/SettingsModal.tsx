@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTaskStore } from '../store/useTaskStore';
 import './SettingsModal.css';
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export const SettingsModal: React.FC<Props> = ({ onClose }) => {
+  const { user, signInWithGoogle, signOut } = useTaskStore();
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -17,13 +19,26 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
         <div className="modal-body">
           <div className="settings-section">
             <h3>Cloud Sync</h3>
-            <p className="settings-description">
-              Sign in with Google to sync your tasks across all devices securely.
-            </p>
-            <button className="google-btn">
-              <span className="google-icon">G</span>
-              Sign in with Google
-            </button>
+            {user ? (
+              <>
+                <p className="settings-description">
+                  Signed in as {user.email}. Synchronizing tasks securely.
+                </p>
+                <button className="google-btn" onClick={() => signOut()}>
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="settings-description">
+                  Sign in with Google to sync your tasks across all devices securely.
+                </p>
+                <button className="google-btn" onClick={() => signInWithGoogle()}>
+                  <span className="google-icon">G</span>
+                  Sign in with Google
+                </button>
+              </>
+            )}
           </div>
 
           <div className="settings-section">

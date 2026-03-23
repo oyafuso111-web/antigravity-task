@@ -5,7 +5,7 @@ import type { Task } from '../types';
 import './Topbar.css';
 
 export const Topbar: React.FC = () => {
-  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId } = useTaskStore();
+  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, user, signInWithGoogle } = useTaskStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
@@ -230,7 +230,15 @@ export const Topbar: React.FC = () => {
         </div>
 
         <button className="brand-bg brand-btn" onClick={handleGlobalAddTask}>+ Add Task</button>
-        <div className="user-avatar" onClick={() => setSettingsOpen(true)} title="Settings & Sync" style={{ cursor: 'pointer' }}>O</div>
+        {user ? (
+          <div className="user-avatar logged-in" onClick={() => setSettingsOpen(true)} title="Settings & Sync" style={{ cursor: 'pointer', padding: 0, overflow: 'hidden' }}>
+            <img src={user.user_metadata.avatar_url} alt="avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+          </div>
+        ) : (
+          <div className="user-avatar" onClick={() => signInWithGoogle()} title="Googleでログイン" style={{ cursor: 'pointer' }}>
+            👤
+          </div>
+        )}
       </div>
     </header>
   );
