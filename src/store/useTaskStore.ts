@@ -16,6 +16,7 @@ interface TaskStore {
   selectedTaskIds: string[];
   activeTab: AppTab;
   isSettingsOpen: boolean;
+  isMobileSidebarOpen: boolean;
   columnOrder: ColumnId[];
   columnWidths: Record<ColumnId, number>;
   highlightedTaskId: string | null;
@@ -31,6 +32,7 @@ interface TaskStore {
   setActiveProject: (id: string | null) => void;
   setActiveTab: (tab: AppTab) => void;
   setSettingsOpen: (isOpen: boolean) => void;
+  setMobileSidebarOpen: (isOpen: boolean) => void;
   setSelectedTaskId: (id: string | null) => void;
   setHighlightedTaskId: (id: string | null) => void;
   setWeekStartsOn: (start: 0 | 1) => void;
@@ -251,6 +253,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   selectedTaskIds: [],
   activeTab: 'list',
   isSettingsOpen: false,
+  isMobileSidebarOpen: false,
   highlightedTaskId: null,
   weekStartsOn: 0,
   columnOrder: ['name', 'project', 'time', 'estimatedMinutes', 'tags', 'priority', 'date', 'createdAt'],
@@ -299,6 +302,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setActiveProject: (id) => set({ activeProjectId: id }),
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
+  setMobileSidebarOpen: (isOpen) => set({ isMobileSidebarOpen: isOpen }),
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setHighlightedTaskId: (id) => set({ highlightedTaskId: id }),
   setWeekStartsOn: (start) => set({ weekStartsOn: start }),

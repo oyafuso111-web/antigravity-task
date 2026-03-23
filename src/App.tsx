@@ -6,6 +6,7 @@ import { CalendarView } from './components/CalendarView';
 import { TimelineView } from './components/TimelineView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsModal } from './components/SettingsModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { TaskDetailView } from './components/TaskDetailView';
 import { useTaskStore } from './store/useTaskStore';
 import { supabase } from './lib/supabase';
@@ -212,6 +213,7 @@ function App() {
         </main>
 
         {isSettingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+        <MobileBottomNav />
       </div>
     </DndContext>
   );

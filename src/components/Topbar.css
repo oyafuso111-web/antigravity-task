@@ -201,3 +201,68 @@
   color: var(--text-secondary);
   text-align: center;
 }
+
+/* ─── Mobile Responsiveness ─── */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  
+  .topbar-left {
+    gap: 12px;
+  }
+  
+  .tabs {
+    display: none; /* Hide standard tabs on mobile */
+  }
+  
+  .page-title {
+    font-size: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+  
+  .topbar-right {
+    gap: 8px;
+    flex: 1;
+    justify-content: flex-end;
+  }
+  
+  .search-input-container {
+    width: 36px; /* Icon only by default */
+    padding: 6px;
+    border-radius: 50%;
+    overflow: hidden;
+    transition: all 0.3s;
+    background: transparent;
+    border: none;
+  }
+  
+  .search-input-container:focus-within,
+  .search-input-container.open {
+    width: 140px;
+    border-radius: 8px;
+    background-color: var(--bg-hover);
+    border: 1px solid var(--brand-solid);
+    position: absolute;
+    right: 50px; /* Space for avatar */
+    z-index: 10;
+  }
+  
+  .search-input {
+    display: none;
+  }
+  
+  .search-input-container:focus-within .search-input,
+  .search-input-container.open .search-input {
+    display: block;
+  }
+  
+  /* Hide the "+ Add Task" button on topbar since it's in the bottom nav now */
+  .brand-btn {
+    display: none;
+  }
+}

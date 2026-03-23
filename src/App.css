@@ -57,3 +57,21 @@
 .main-view-container.with-detail {
   box-shadow: inset -5px 0 10px rgba(0,0,0,0.02);
 }
+
+@media (max-width: 768px) {
+  .app-container {
+    padding-bottom: 64px; /* Space for MobileBottomNav */
+  }
+
+  .sidebar {
+    position: absolute; /* Handled effectively by Sidebar.css */
+  }
+
+  .main-content {
+    width: 100vw;
+  }
+
+  .main-view-container {
+    padding: 16px;
+  }
+}

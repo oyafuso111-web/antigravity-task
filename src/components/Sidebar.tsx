@@ -74,7 +74,9 @@ export const Sidebar: React.FC = () => {
     addProject, 
     updateProject, 
     updateTag, 
-    toggleProjectFavorite
+    toggleProjectFavorite,
+    isMobileSidebarOpen,
+    setMobileSidebarOpen
   } = useTaskStore();
   const [isAdding, setIsAdding] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -90,6 +92,7 @@ export const Sidebar: React.FC = () => {
     if (smartViews.includes(id)) {
       setActiveTab('list');
     }
+    setMobileSidebarOpen(false);
   };
 
   // Sort projects: favorites first, then alphabetical
@@ -118,7 +121,12 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="sidebar">
+    <>
+      <div 
+        className={`sidebar-overlay ${isMobileSidebarOpen ? 'active' : ''}`}
+        onClick={() => setMobileSidebarOpen(false)}
+      />
+      <aside className={`sidebar ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <h2 className="brand-text">Antigravity Task</h2>
       </div>
@@ -245,5 +253,6 @@ export const Sidebar: React.FC = () => {
         </ul>
       </div>
     </aside>
+    </>
   );
 };
