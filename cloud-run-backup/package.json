@@ -1,0 +1,13 @@
+{
+  "name": "backup-to-gcs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "functions-framework --target=handleDataOperation"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0",
+    "@google-cloud/storage": "^7.0.0",
+    "@supabase/supabase-js": "^2.38.0"
+  }
+}
