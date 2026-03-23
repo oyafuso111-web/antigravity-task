@@ -13,7 +13,10 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
   const [backupFiles, setBackupFiles] = React.useState<string[]>([]);
   const [selectedBackup, setSelectedBackup] = React.useState<string>('');
 
+  const [isFetchingList, setIsFetchingList] = React.useState(true);
+
   React.useEffect(() => {
+    setIsFetchingList(true);
     fetch('https://backup-to-gcs-672698303673.asia-northeast1.run.app', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -26,7 +29,8 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
           if (d.files.length > 0) setSelectedBackup(d.files[0]);
         }
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setIsFetchingList(false));
   }, []);
 
   const handleBackup = async () => {
@@ -126,9 +130,11 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
                     value={selectedBackup} 
                     onChange={e => setSelectedBackup(e.target.value)}
                     style={{ padding: '6px', borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', flex: 1 }}
-                    disabled={backupFiles.length === 0}
+                    disabled={isFetchingList || backupFiles.length === 0}
                   >
-                    {backupFiles.length === 0 ? (
+                    {isFetchingList ? (
+                      <option value="">Fetching backups...</option>
+                    ) : backupFiles.length === 0 ? (
                       <option value="">No backups found</option>
                     ) : (
                       backupFiles.map(file => (
