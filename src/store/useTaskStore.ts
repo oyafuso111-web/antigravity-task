@@ -474,7 +474,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  toggleTaskCompletion: (id) => {
+  toggleTaskCompletion: async (id) => {
     const state = get();
     const task = state.tasks.find(t => t.id === id);
     if (!task) return;
@@ -509,9 +509,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     const { user } = get();
     if (user) {
-      supabase.from('tasks').update({ completed: isMarkingComplete }).eq('id', id);
+      await supabase.from('tasks').update({ completed: isMarkingComplete }).eq('id', id);
       if (newTaskToSync) {
-        supabase.from('tasks').insert({ ...mapTaskToDB(newTaskToSync), user_id: user.id });
+        await supabase.from('tasks').insert({ ...mapTaskToDB(newTaskToSync), user_id: user.id });
       }
     }
   },
