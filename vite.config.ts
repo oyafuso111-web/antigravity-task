@@ -26,6 +26,22 @@ export default defineConfig({
             type: 'image/svg+xml'
           }
         ]
+      },
+      workbox: {
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'supabase-queue',
+                options: {
+                  maxRetentionTime: 24 * 60 // Retry for max of 24 Hours
+                }
+              }
+            }
+          }
+        ]
       }
     })
   ],
