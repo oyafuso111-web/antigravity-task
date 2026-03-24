@@ -306,7 +306,25 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       supabase.from('tags').select('*')
     ]);
 
-    if (!tasksRes.error) set({ tasks: (tasksRes.data || []).map(mapDBToTask) });
+    if (!tasksRes.error) {
+      const fetchedTasks = (tasksRes.data || []).map(mapDBToTask);
+      const { activeTimerTaskId, tasks: currentTasks } = get();
+      
+      const mergedTasks = fetchedTasks.map(ft => {
+        if (ft.id === activeTimerTaskId) {
+          const localTask = currentTasks.find(t => t.id === activeTimerTaskId);
+          if (localTask) {
+            return {
+              ...ft,
+              accumulatedTime: localTask.accumulatedTime,
+              dailyLogs: localTask.dailyLogs
+            };
+          }
+        }
+        return ft;
+      });
+      set({ tasks: mergedTasks });
+    }
     if (!projectsRes.error) set({ projects: (projectsRes.data || []).map(mapDBToProject) });
     if (!tagsRes.error) set({ tags: (tagsRes.data || []).map(mapDBToTag) });
   },

@@ -255,6 +255,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                   }
                 }}
                 autoFocus
+                onFocus={e => e.target.select()}
                 style={{ width: '60px', padding: '2px 4px', fontSize: '0.75rem', outline: 'none', border: '1px solid var(--brand-solid)', borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)' }}
                 min="0"
                 step="1"
