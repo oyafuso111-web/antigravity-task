@@ -307,21 +307,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     ]);
 
     if (!tasksRes.error) {
-      const fetchedTasks = (tasksRes.data || []).map(mapDBToTask);
+      const dbTasks = (tasksRes.data || []).map(mapDBToTask);
       const { activeTimerTaskId, tasks: currentTasks } = get();
       
-      const mergedTasks = fetchedTasks.map(ft => {
-        if (ft.id === activeTimerTaskId) {
+      const mergedTasks = dbTasks.map(dt => {
+        // If this task is currently being timed locally, preserve the local time/logs
+        if (dt.id === activeTimerTaskId) {
           const localTask = currentTasks.find(t => t.id === activeTimerTaskId);
           if (localTask) {
             return {
-              ...ft,
+              ...dt,
               accumulatedTime: localTask.accumulatedTime,
               dailyLogs: localTask.dailyLogs
             };
           }
         }
-        return ft;
+        return dt;
       });
       set({ tasks: mergedTasks });
     }
@@ -516,14 +517,33 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   toggleTaskCompletion: async (id) => {
-    const state = get();
-    const task = state.tasks.find(t => t.id === id);
+    const { tasks, activeTimerTaskId, user, lastTimerTick } = get();
+    const task = tasks.find(t => t.id === id);
     if (!task) return;
 
     const isMarkingComplete = !task.completed;
-    const newTasksState = state.tasks.map((t) => (t.id === id ? { ...t, completed: isMarkingComplete } : t));
+    const todayStr = getLocalDateStr(new Date());
+    
+    // 1. If this task is active, stop the timer first and capture the final tick
+    let finalTaskState = { ...task, completed: isMarkingComplete };
+    let wasActiveTimer = false;
+    
+    if (activeTimerTaskId === id && lastTimerTick) {
+      wasActiveTimer = true;
+      const now = Date.now();
+      const elapsed = Math.floor((now - lastTimerTick) / 1000);
+      if (elapsed > 0) {
+        const dailyLogs = { ...(task.dailyLogs || {}) };
+        dailyLogs[todayStr] = (dailyLogs[todayStr] || 0) + elapsed;
+        finalTaskState.accumulatedTime += elapsed;
+        finalTaskState.dailyLogs = dailyLogs;
+      }
+    }
 
+    // 2. Prepare new tasks array (immediate UI update)
+    const updatedTasks = tasks.map(t => t.id === id ? finalTaskState : t);
     let newTaskToSync: Task | null = null;
+
     if (isMarkingComplete && task.recurrence) {
       const nextDate = calculateNextOccurrence(task.dueDate || new Date().toISOString(), task.recurrence);
       if (nextDate) {
@@ -537,23 +557,37 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           dailyLogs: {},
           comments: [],
           subtasks: task.subtasks.map(st => ({ ...st, id: crypto.randomUUID(), completed: false })),
-          order: state.tasks.length
+          order: tasks.length
         };
         newTaskToSync = newTask;
-        set({ tasks: [...newTasksState, newTask] });
+        set({ 
+          tasks: [...updatedTasks, newTask],
+          activeTimerTaskId: wasActiveTimer ? null : activeTimerTaskId,
+          lastTimerTick: wasActiveTimer ? null : lastTimerTick
+        });
       } else {
-        set({ tasks: newTasksState });
+        set({ 
+          tasks: updatedTasks,
+          activeTimerTaskId: wasActiveTimer ? null : activeTimerTaskId,
+          lastTimerTick: wasActiveTimer ? null : lastTimerTick
+        });
       }
-      set({ tasks: newTasksState });
+    } else {
+      set({ 
+        tasks: updatedTasks,
+        activeTimerTaskId: wasActiveTimer ? null : activeTimerTaskId,
+        lastTimerTick: wasActiveTimer ? null : lastTimerTick
+      });
     }
 
-    const { user } = get();
+    // 3. Sync to Supabase
     if (user) {
       await supabase.from('tasks').update({ 
         completed: isMarkingComplete,
-        accumulated_time: task.accumulatedTime,
-        daily_logs: task.dailyLogs
+        accumulated_time: finalTaskState.accumulatedTime,
+        daily_logs: finalTaskState.dailyLogs
       }).eq('id', id);
+      
       if (newTaskToSync) {
         await supabase.from('tasks').insert({ ...mapTaskToDB(newTaskToSync), user_id: user.id });
       }
@@ -755,7 +789,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     return {
       lastTimerTick: now,
       tasks: state.tasks.map(t => {
-        if (t.id === state.activeTimerTaskId) {
+        if (t.id === state.activeTimerTaskId && !t.completed) {
           const dailyLogs = { ...(t.dailyLogs || {}) };
           dailyLogs[todayStr] = (dailyLogs[todayStr] || 0) + elapsedSecs;
           return { ...t, accumulatedTime: t.accumulatedTime + elapsedSecs, dailyLogs };
