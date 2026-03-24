@@ -230,15 +230,25 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                 value={editMinutes}
                 onChange={e => setEditMinutes(e.target.value)}
                 onBlur={() => {
-                  const val = parseInt(editMinutes, 10);
-                  if (!isNaN(val) && val >= 0) {
-                    setDailyLog(task.id, todayStr, val * 60);
+                  if (isEditingTime) {
+                    const val = parseInt(editMinutes, 10);
+                    if (!isNaN(val) && val >= 0) {
+                      setDailyLog(task.id, todayStr, val * 60);
+                    }
+                    setIsEditingTime(false);
                   }
-                  setIsEditingTime(false);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    e.currentTarget.blur();
+                    e.preventDefault();
+                    if (e.nativeEvent.isComposing) return;
+                    e.stopPropagation();
+                    
+                    const val = parseInt(editMinutes, 10);
+                    if (!isNaN(val) && val >= 0) {
+                      setDailyLog(task.id, todayStr, val * 60);
+                    }
+                    setIsEditingTime(false);
                   }
                   if (e.key === 'Escape') {
                     setIsEditingTime(false);

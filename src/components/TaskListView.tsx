@@ -121,11 +121,11 @@ const SortableHeader: React.FC<{
 };
 
 export const TaskListView: React.FC = () => {
-  const { tasks, projects, addTask, activeProjectId, columnOrder, columnWidths, setColumnWidth } = useTaskStore();
-  const [sortColumn, setSortColumn] = useState<ColumnId | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [secondarySortColumn, setSecondarySortColumn] = useState<ColumnId | null>(null);
-  const [secondarySortDirection, setSecondarySortDirection] = useState<SortDirection>(null);
+  const { 
+    tasks, projects, addTask, activeProjectId, 
+    columnOrder, columnWidths, setColumnWidth,
+    sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, setSortConfig
+  } = useTaskStore();
   
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskProjectId, setNewTaskProjectId] = useState<string | null>(null);
@@ -141,18 +141,12 @@ export const TaskListView: React.FC = () => {
   const handleSort = (col: ColumnId) => {
     if (sortColumn === col) {
       if (sortDirection === 'asc') {
-        setSortDirection('desc');
+        setSortConfig(col, 'desc', secondarySortColumn, secondarySortDirection);
       } else if (sortDirection === 'desc') {
-        setSortColumn(secondarySortColumn);
-        setSortDirection(secondarySortDirection);
-        setSecondarySortColumn(null);
-        setSecondarySortDirection(null);
+        setSortConfig(secondarySortColumn, secondarySortDirection, null, null);
       }
     } else {
-      setSecondarySortColumn(sortColumn);
-      setSecondarySortDirection(sortDirection);
-      setSortColumn(col);
-      setSortDirection('asc');
+      setSortConfig(col, 'asc', sortColumn, sortDirection);
     }
   };
 
