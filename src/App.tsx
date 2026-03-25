@@ -146,14 +146,27 @@ function App() {
   };
 
   useEffect(() => {
-    let timerId: number | undefined;
+    let worker: Worker | undefined;
     if (activeTimerTaskId) {
-      timerId = window.setInterval(() => {
-        tickTimer();
-      }, 1000);
+      worker = new Worker('/timerWorker.js');
+      worker.onmessage = (e) => {
+        if (e.data === 'tick') tickTimer();
+      };
     }
-    return () => clearInterval(timerId);
+    return () => worker?.terminate();
   }, [activeTimerTaskId, tickTimer]);
+
+  useEffect(() => {
+    // Attempt to pause and save timer on window close
+    const handleUnload = () => {
+      const { activeTimerTaskId, pauseTimer } = useTaskStore.getState();
+      if (activeTimerTaskId) {
+        pauseTimer();
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []);
   useEffect(() => {
     // Auto dark mode logic based on time (after 18:00 or before 06:00)
     const checkTimeForDarkMode = () => {

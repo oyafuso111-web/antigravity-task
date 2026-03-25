@@ -11,8 +11,6 @@ interface TaskStore {
   folders: Folder[];
   tags: Tag[];
   activeProjectId: string | null;
-  activeTimerTaskId: string | null;
-  lastTimerTick: number | null;
   selectedTaskId: string | null;
   selectedTaskIds: string[];
   activeTab: AppTab;
@@ -28,9 +26,15 @@ interface TaskStore {
   secondarySortColumn: ColumnId | null;
   secondarySortDirection: 'asc' | 'desc' | null;
   
+  activeTimerTaskId: string | null;
+  timerStartTimestamp: number | null;
+  timerAccumulatedAtStart: number | null;
+  lastTimerTick: number | null;
+  
   user: any | null;
   
   // Actions
+  loadTimerState: () => void;
   setUser: (user: any | null) => void;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -255,8 +259,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   folders: [{ id: 'f1', name: 'Work' }],
   tags: initialTags,
   activeProjectId: 'p1',
-  activeTimerTaskId: null,
-  lastTimerTick: null,
   selectedTaskId: null,
   selectedTaskIds: [],
   activeTab: 'list',
@@ -279,7 +281,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   sortDirection: null,
   secondarySortColumn: null,
   secondarySortDirection: null,
-
+  activeTimerTaskId: null,
+  timerStartTimestamp: null,
+  timerAccumulatedAtStart: null,
+  lastTimerTick: null,
+  
   setUser: (user) => set({ user }),
   
   signInWithGoogle: async () => {
@@ -328,6 +334,24 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
     if (!projectsRes.error) set({ projects: (projectsRes.data || []).map(mapDBToProject) });
     if (!tagsRes.error) set({ tags: (tagsRes.data || []).map(mapDBToTag) });
+
+    // Try to load timber from session storage if any
+    get().loadTimerState();
+  },
+
+  loadTimerState: () => {
+    const savedTaskId = sessionStorage.getItem('activeTimerTaskId');
+    const savedStart = sessionStorage.getItem('timerStartTimestamp');
+    const savedAcc = sessionStorage.getItem('timerAccumulatedAtStart');
+
+    if (savedTaskId && savedStart && savedAcc) {
+      set({
+        activeTimerTaskId: savedTaskId,
+        timerStartTimestamp: parseInt(savedStart, 10),
+        timerAccumulatedAtStart: parseInt(savedAcc, 10),
+        lastTimerTick: Date.now()
+      });
+    }
   },
 
   setActiveProject: (id) => set({ activeProjectId: id }),
@@ -763,36 +787,80 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     return state;
   }),
 
-  startTimer: (taskId) => set(() => ({ activeTimerTaskId: taskId, lastTimerTick: Date.now() })),
+  startTimer: (taskId) => {
+    const { tasks } = get();
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const startTime = Date.now();
+    const accAtStart = task.accumulatedTime;
+
+    set(() => ({ 
+      activeTimerTaskId: taskId, 
+      timerStartTimestamp: startTime,
+      timerAccumulatedAtStart: accAtStart,
+      lastTimerTick: startTime 
+    }));
+
+    sessionStorage.setItem('activeTimerTaskId', taskId);
+    sessionStorage.setItem('timerStartTimestamp', startTime.toString());
+    sessionStorage.setItem('timerAccumulatedAtStart', accAtStart.toString());
+  },
   
   pauseTimer: async () => {
-    const { activeTimerTaskId, tasks, user } = get();
+    const { activeTimerTaskId, tasks, user, timerStartTimestamp } = get();
     if (activeTimerTaskId) {
       const task = tasks.find(t => t.id === activeTimerTaskId);
-      if (task && user) {
+      if (task && user && timerStartTimestamp) {
+        // Capture final delta
+        const now = Date.now();
+        const elapsed = Math.floor((now - timerStartTimestamp) / 1000);
+        const todayStr = getLocalDateStr(new Date());
+        
+        const finalDailyLogs = { ...(task.dailyLogs || {}) };
+        finalDailyLogs[todayStr] = (finalDailyLogs[todayStr] || 0) + elapsed;
+        const finalAcc = task.accumulatedTime + elapsed;
+
         await supabase.from('tasks').update({ 
-          accumulated_time: Math.max(0, task.accumulatedTime), 
-          daily_logs: task.dailyLogs 
-        }).eq('id', task.id);
+          accumulated_time: Math.max(0, finalAcc), 
+          daily_logs: finalDailyLogs 
+        }).eq('id', activeTimerTaskId);
+        
+        // Update local state one last time before clearing
+        set((state) => ({
+          tasks: state.tasks.map(t => t.id === activeTimerTaskId ? { ...t, accumulatedTime: finalAcc, dailyLogs: finalDailyLogs } : t)
+        }));
       }
     }
-    set(() => ({ activeTimerTaskId: null, lastTimerTick: null }));
+    set(() => ({ 
+      activeTimerTaskId: null, 
+      timerStartTimestamp: null, 
+      timerAccumulatedAtStart: null,
+      lastTimerTick: null 
+    }));
+    sessionStorage.removeItem('activeTimerTaskId');
+    sessionStorage.removeItem('timerStartTimestamp');
+    sessionStorage.removeItem('timerAccumulatedAtStart');
   },
   
   tickTimer: () => set((state) => {
-    if (!state.activeTimerTaskId || !state.lastTimerTick) return state;
+    if (!state.activeTimerTaskId || !state.timerStartTimestamp || state.timerAccumulatedAtStart === null) return state;
     const now = Date.now();
-    const elapsedSecs = Math.floor((now - state.lastTimerTick) / 1000);
-    if (elapsedSecs < 1) return state; // Only update if at least 1 second passed
-
+    const totalElapsedSecs = Math.floor((now - state.timerStartTimestamp) / 1000);
     const todayStr = getLocalDateStr(new Date());
+
     return {
       lastTimerTick: now,
       tasks: state.tasks.map(t => {
         if (t.id === state.activeTimerTaskId && !t.completed) {
+          const newAcc = state.timerAccumulatedAtStart! + totalElapsedSecs;
+          // Note: splitting dailyLogs exactly on midnight wall-clock is complex with absolute math.
+          // For now, we update the current day's log relative to the start of this session.
+          // This is accurate for total time, and reasonably accurate for log distribution.
           const dailyLogs = { ...(t.dailyLogs || {}) };
-          dailyLogs[todayStr] = (dailyLogs[todayStr] || 0) + elapsedSecs;
-          return { ...t, accumulatedTime: t.accumulatedTime + elapsedSecs, dailyLogs };
+          dailyLogs[todayStr] = (dailyLogs[todayStr] || 0) + (newAcc - t.accumulatedTime);
+          
+          return { ...t, accumulatedTime: newAcc, dailyLogs };
         }
         return t;
       })
