@@ -121,6 +121,40 @@
   color: #f5a623;
 }
 
+.sidebar-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
+.nav-item:hover .sidebar-delete-btn {
+  opacity: 0.6;
+}
+
+.sidebar-delete-btn:hover {
+  opacity: 1 !important;
+  color: var(--priority-high);
+  background-color: rgba(240, 106, 106, 0.1);
+}
+
+.sidebar-edit-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-primary);
+  font-size: inherit;
+  padding: 0 4px;
+  border-bottom: 2px solid var(--brand-solid);
+}
+
 .add-project-btn {
   margin: 8px 20px;
   color: var(--text-sidebar);

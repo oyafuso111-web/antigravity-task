@@ -17,6 +17,22 @@
   z-index: 1;
 }
 
+.task-row:hover .delete-btn {
+  display: flex !important;
+}
+
+.task-title-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-primary);
+  font-size: inherit;
+  font-family: inherit;
+  padding: 2px 4px;
+  border-bottom: 2px solid var(--brand-solid);
+}
+
 .task-row.timer-active {
   background-color: rgba(110, 68, 225, 0.15) !important;
   border-left: 3px solid #6E44E1;

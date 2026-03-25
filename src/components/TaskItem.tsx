@@ -34,7 +34,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     setDailyLog,
     highlightedTaskId,
     timerStartTimestamp,
-    timerTick
+    timerTick,
+    deleteTask
   } = useTaskStore();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
@@ -54,6 +55,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   const [tagSelectedIndex, setTagSelectedIndex] = useState(0);
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [editMinutes, setEditMinutes] = useState<string>('0');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState(task.title);
   
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateText, setDateText] = useState('');
@@ -166,7 +169,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
 
   const filteredProjects = projects.filter(p => 
     p.id !== 'p1' && p.name.toLowerCase().includes(projectSearch.toLowerCase())
-  );
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
 
   const handleRowClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -199,10 +202,47 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
             >
               <div className="check-circle" />
             </button>
-            <span className="task-title">
-              {isTimerActive && <span className="timer-indicator">⏱️ </span>}
-              {task.title}
-            </span>
+            {isEditingTitle ? (
+              <input
+                className="task-title-input"
+                autoFocus
+                value={editTitleValue}
+                onChange={(e) => setEditTitleValue(e.target.value)}
+                onBlur={() => {
+                  if (editTitleValue.trim() && editTitleValue !== task.title) {
+                    updateTask(task.id, { title: editTitleValue.trim() });
+                  } else {
+                    setEditTitleValue(task.title);
+                  }
+                  setIsEditingTitle(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                  if (e.key === 'Escape') {
+                    setEditTitleValue(task.title);
+                    setIsEditingTitle(false);
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontSize: 'inherit', fontFamily: 'inherit', padding: '2px 4px', borderBottom: '2px solid var(--brand-solid)' }}
+              />
+            ) : (
+              <span 
+                className="task-title"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditTitleValue(task.title);
+                  setIsEditingTitle(true);
+                }}
+                style={{ cursor: 'text' }}
+              >
+                {isTimerActive && <span className="timer-indicator">⏱️ </span>}
+                {task.title}
+              </span>
+            )}
             <button
               className="icon-btn details-btn"
               onClick={(e) => {
@@ -213,6 +253,19 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
               style={{ padding: '2px 6px', fontSize: '0.75rem', flexShrink: 0, display: 'flex', alignItems: 'center', opacity: 0.5 }}
             >
               詳細 〉
+            </button>
+            <button
+              className="icon-btn delete-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm('このタスクを削除しますか？')) {
+                  deleteTask(task.id);
+                }
+              }}
+              title="Delete Task"
+              style={{ padding: '2px 6px', fontSize: '0.75rem', flexShrink: 0, display: 'none', alignItems: 'center', opacity: 0.5, color: 'var(--priority-high)' }}
+            >
+              🗑️
             </button>
           </div>
         );

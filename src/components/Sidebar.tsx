@@ -29,12 +29,17 @@ const DroppableProjectItem: React.FC<{
   isActive: boolean, 
   onClick: () => void, 
   onToggleFavorite: (e: React.MouseEvent) => void,
-  onColorChange: (color: string) => void
-}> = ({ project, isActive, onClick, onToggleFavorite, onColorChange }) => {
+  onColorChange: (color: string) => void,
+  onDelete: (e: React.MouseEvent) => void,
+  onRename: (newName: string) => void
+}> = ({ project, isActive, onClick, onToggleFavorite, onColorChange, onDelete, onRename }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: `project-${project.id}`,
     data: { type: 'project', id: project.id }
   });
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(project.name);
 
   return (
     <li 
@@ -52,13 +57,52 @@ const DroppableProjectItem: React.FC<{
           onChange={(e) => onColorChange(e.target.value)}
         />
       </label>
-      <span className="project-name-text">{project.name}</span>
+      {isEditing ? (
+        <input
+          autoFocus
+          className="sidebar-edit-input"
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          onBlur={() => {
+            if (editName.trim() && editName !== project.name) {
+              onRename(editName.trim());
+            } else {
+              setEditName(project.name);
+            }
+            setIsEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+            if (e.key === 'Escape') { setEditName(project.name); setIsEditing(false); }
+          }}
+          onClick={(e) => e.stopPropagation()}
+          style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontSize: 'inherit', padding: '0 4px', borderBottom: '2px solid var(--brand-solid)' }}
+        />
+      ) : (
+        <span 
+          className="project-name-text"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            setEditName(project.name);
+            setIsEditing(true);
+          }}
+        >
+          {project.name}
+        </span>
+      )}
       <button 
         className={`fav-btn ${project.isFavorite ? 'is-fav' : ''}`}
         onClick={onToggleFavorite}
         title={project.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
       >
         {project.isFavorite ? '★' : '☆'}
+      </button>
+      <button
+        className="sidebar-delete-btn"
+        onClick={onDelete}
+        title="Delete project"
+      >
+        ✕
       </button>
     </li>
   );
@@ -72,8 +116,10 @@ export const Sidebar: React.FC = () => {
     setActiveProject, 
     setActiveTab, 
     addProject, 
-    updateProject, 
+    updateProject,
+    deleteProject,
     updateTag, 
+    deleteTag,
     toggleProjectFavorite,
     isMobileSidebarOpen,
     setMobileSidebarOpen
@@ -118,6 +164,75 @@ export const Sidebar: React.FC = () => {
       setNewProjectName('');
       setIsAdding(false);
     }
+  };
+
+  // Editable tag component
+  const EditableTag: React.FC<{ tag: any }> = ({ tag }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState(tag.name);
+    
+    return (
+      <li 
+        className={`nav-item ${activeProjectId === `t-${tag.id}` ? 'active' : ''}`}
+        onClick={() => handleNavClick(`t-${tag.id}`)}
+        style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}
+      >
+        <label className="color-picker-label" title="Change color" onClick={(e) => e.stopPropagation()}>
+          <span className="color-dot" style={{ backgroundColor: tag.color, width: '10px', height: '10px' }}></span>
+          <input 
+            type="color" 
+            className="hidden-color-input"
+            value={tag.color} 
+            onChange={(e) => updateTag(tag.id, { color: e.target.value })}
+          />
+        </label>
+        {isEditing ? (
+          <input
+            autoFocus
+            className="sidebar-edit-input"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={() => {
+              if (editName.trim() && editName !== tag.name) {
+                updateTag(tag.id, { name: editName.trim() });
+              } else {
+                setEditName(tag.name);
+              }
+              setIsEditing(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+              if (e.key === 'Escape') { setEditName(tag.name); setIsEditing(false); }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontSize: 'inherit', padding: '0 4px', borderBottom: '2px solid var(--brand-solid)' }}
+          />
+        ) : (
+          <span 
+            style={{ flex: 1 }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setEditName(tag.name);
+              setIsEditing(true);
+            }}
+          >
+            {tag.name}
+          </span>
+        )}
+        <button
+          className="sidebar-delete-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`タグ「${tag.name}」を削除しますか？`)) {
+              deleteTag(tag.id);
+            }
+          }}
+          title="Delete tag"
+        >
+          ✕
+        </button>
+      </li>
+    );
   };
 
   return (
@@ -180,6 +295,13 @@ export const Sidebar: React.FC = () => {
               onClick={() => handleNavClick(project.id)}
               onToggleFavorite={(e) => { e.stopPropagation(); toggleProjectFavorite(project.id); }}
               onColorChange={(color) => updateProject(project.id, { color })}
+              onDelete={(e) => {
+                e.stopPropagation();
+                if (window.confirm(`プロジェクト「${project.name}」を削除しますか？\n所属するタスクはプロジェクトなしになります。`)) {
+                  deleteProject(project.id);
+                }
+              }}
+              onRename={(newName) => updateProject(project.id, { name: newName })}
             />
           ))}
         </ul>
@@ -219,23 +341,7 @@ export const Sidebar: React.FC = () => {
         <h3 className="section-title">Tags</h3>
         <ul className="nav-list tags-list">
           {tags.map(tag => (
-            <li 
-              key={tag.id}
-              className={`nav-item ${activeProjectId === `t-${tag.id}` ? 'active' : ''}`}
-              onClick={() => handleNavClick(`t-${tag.id}`)}
-              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <label className="color-picker-label" title="Change color" onClick={(e) => e.stopPropagation()}>
-                <span className="color-dot" style={{ backgroundColor: tag.color, width: '10px', height: '10px' }}></span>
-                <input 
-                  type="color" 
-                  className="hidden-color-input"
-                  value={tag.color} 
-                  onChange={(e) => updateTag(tag.id, { color: e.target.value })}
-                />
-              </label>
-              {tag.name}
-            </li>
+            <EditableTag key={tag.id} tag={tag} />
           ))}
         </ul>
       </div>

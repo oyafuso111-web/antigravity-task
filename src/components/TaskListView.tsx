@@ -83,6 +83,8 @@ const SortableHeader: React.FC<{
     document.body.style.userSelect = 'none';
   };
 
+  const isActiveSort = sortColumn === id;
+
   return (
     <div 
       ref={setNodeRef} 
@@ -91,17 +93,30 @@ const SortableHeader: React.FC<{
       {...listeners} 
       className={`header-cell cell-${id}`}
     >
-      <span 
-        className="header-sort-label"
-        onClick={(e) => { e.stopPropagation(); onSort(id); }}
-        style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-      >
+      <span className="header-sort-label" style={{ flex: 1, userSelect: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
         {label}
-        {sortColumn === id && (
+        {isActiveSort && (
           <span className="sort-indicator" style={{ fontSize: '0.65rem', opacity: 0.7 }}>
             {sortDirection === 'asc' ? '▲' : '▼'}
           </span>
         )}
+      </span>
+      <span
+        className="sort-hover-btn"
+        onClick={(e) => { e.stopPropagation(); onSort(id); }}
+        title="Sort"
+        style={{
+          cursor: 'pointer',
+          fontSize: '0.6rem',
+          opacity: 0,
+          padding: '4px 6px',
+          borderRadius: '3px',
+          transition: 'opacity 0.15s',
+          flexShrink: 0,
+          color: 'var(--text-secondary)'
+        }}
+      >
+        {isActiveSort ? (sortDirection === 'asc' ? '▼' : '✕') : '▲▼'}
       </span>
       <div
         className="resize-handle"
@@ -331,7 +346,10 @@ export const TaskListView: React.FC = () => {
     });
 
     // Apply sorting
+    const isArchive = activeProjectId === 'completed';
+
     if (sortColumn && sortDirection) {
+      // User-chosen sort
       const getComparison = (col: ColumnId, dir: SortDirection, a: Task, b: Task) => {
         if (!col || !dir) return 0;
         let cmp = 0;
@@ -377,6 +395,36 @@ export const TaskListView: React.FC = () => {
         }
         return cmp;
       });
+    } else {
+      // Default sort
+      if (isArchive) {
+        // Archive: date descending
+        filtered.sort((a, b) => {
+          if (!a.dueDate && !b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return b.dueDate.localeCompare(a.dueDate);
+        });
+      } else {
+        // Active: date asc → priority desc → project name asc
+        const priorityOrder: Record<string, number> = { '1st': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
+        filtered.sort((a, b) => {
+          // Date asc (null last)
+          if (a.dueDate && !b.dueDate) return -1;
+          if (!a.dueDate && b.dueDate) return 1;
+          if (a.dueDate && b.dueDate) {
+            const dc = a.dueDate.localeCompare(b.dueDate);
+            if (dc !== 0) return dc;
+          }
+          // Priority desc
+          const pc = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+          if (pc !== 0) return pc;
+          // Project name asc
+          const pA = projects.find(p => p.id === a.projectId)?.name || '';
+          const pB = projects.find(p => p.id === b.projectId)?.name || '';
+          return pA.localeCompare(pB, 'ja');
+        });
+      }
     }
 
     return filtered;
@@ -459,8 +507,8 @@ export const TaskListView: React.FC = () => {
                       onFocus={e => e.target.style.borderColor = 'var(--border-color)'}
                       onBlur={e => e.target.style.borderColor = 'transparent'}
                     >
+                      {[...projects].sort((a, b) => a.name.localeCompare(b.name, 'ja')).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       <option value="">No Project</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
                 );

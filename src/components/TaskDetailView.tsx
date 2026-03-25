@@ -15,13 +15,16 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   const { 
     tasks, 
     updateTask, 
-    addComment, 
+    addComment,
+    updateComment,
+    deleteComment,
     addSubtask, 
     toggleSubtask, 
     setSelectedTaskId, 
     projects, 
     moveTask,
-    toggleTaskCompletion
+    toggleTaskCompletion,
+    deleteTask
   } = useTaskStore();
   const task = tasks.find(t => t.id === taskId);
   
@@ -31,6 +34,10 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateText, setDateText] = useState('');
   const dateInputRef = useRef<HTMLDivElement>(null);
+
+  // Comment editing state
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
 
   useEffect(() => {
     const handleClickOutsideDate = (event: MouseEvent) => {
@@ -103,16 +110,39 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     setSpecificRecurrence({ daysOfWeek: newDays });
   };
 
+  // Sort projects alphabetically, blank last
+  const sortedProjects = [...projects]
+    .filter(p => p.id !== 'p1')
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
   return (
     <div className="task-detail-panel">
       <div className="detail-header">
         <button className="close-btn" onClick={() => setSelectedTaskId(null)}>✕ Close</button>
-        <button 
-          className={`complete-btn-large ${task.completed ? 'completed' : ''}`}
-          onClick={() => toggleTaskCompletion(taskId)}
-        >
-          {task.completed ? '✓ Completed' : 'Mark Complete'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button 
+            className={`complete-btn-large ${task.completed ? 'completed' : ''}`}
+            onClick={() => toggleTaskCompletion(taskId)}
+          >
+            {task.completed ? '✓ Completed' : 'Mark Complete'}
+          </button>
+          <button
+            className="delete-task-btn"
+            onClick={() => {
+              if (window.confirm('このタスクを削除しますか？')) {
+                deleteTask(taskId);
+                setSelectedTaskId(null);
+              }
+            }}
+            style={{
+              background: 'none', border: '1px solid var(--priority-high)', 
+              color: 'var(--priority-high)', padding: '6px 12px', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600
+            }}
+          >
+            🗑️ Delete
+          </button>
+        </div>
       </div>
 
       <div className="detail-body">
@@ -131,10 +161,10 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                  value={task.projectId || ''} 
                  onChange={(e) => moveTask(task.id, e.target.value || null)}
                >
-                 <option value="">No Project</option>
-                 {projects.filter(p => p.id !== 'p1').map(p => (
+                 {sortedProjects.map(p => (
                    <option key={p.id} value={p.id}>{p.name}</option>
                  ))}
+                 <option value="">No Project</option>
                </select>
             </div>
           </div>
@@ -399,8 +429,72 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                 <div className="comment-meta">
                   <span className="comment-user">{c.userName}</span>
                   <span className="comment-date">{new Date(c.createdAt).toLocaleString()}</span>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={() => {
+                        setEditingCommentId(c.id);
+                        setEditCommentText(c.text);
+                      }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.75rem', padding: '2px 6px' }}
+                      title="Edit comment"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm('このコメントを削除しますか？')) {
+                          deleteComment(taskId, c.id);
+                        }
+                      }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--priority-high)', fontSize: '0.75rem', padding: '2px 6px' }}
+                      title="Delete comment"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-                <div className="comment-text">{c.text}</div>
+                {editingCommentId === c.id ? (
+                  <div style={{ marginTop: '4px' }}>
+                    <textarea
+                      autoFocus
+                      value={editCommentText}
+                      onChange={(e) => setEditCommentText(e.target.value)}
+                      style={{
+                        width: '100%', minHeight: '60px', padding: '8px',
+                        border: '1px solid var(--border-color)', borderRadius: '4px',
+                        background: 'var(--bg-app)', color: 'var(--text-primary)',
+                        fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                      <button
+                        onClick={() => {
+                          if (editCommentText.trim()) {
+                            updateComment(taskId, c.id, editCommentText.trim());
+                          }
+                          setEditingCommentId(null);
+                        }}
+                        style={{
+                          padding: '4px 12px', borderRadius: '4px', border: 'none',
+                          background: 'var(--brand-solid)', color: 'white', cursor: 'pointer', fontSize: '0.8rem'
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingCommentId(null)}
+                        style={{
+                          padding: '4px 12px', borderRadius: '4px', border: '1px solid var(--border-color)',
+                          background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="comment-text">{c.text}</div>
+                )}
               </div>
             ))}
           </div>

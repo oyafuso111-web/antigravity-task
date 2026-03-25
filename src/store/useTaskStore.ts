@@ -64,9 +64,12 @@ interface TaskStore {
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   addComment: (taskId: string, text: string) => void;
+  updateComment: (taskId: string, commentId: string, text: string) => void;
+  deleteComment: (taskId: string, commentId: string) => void;
 
   addProject: (name: string, color: string, id?: string, folderId?: string | null) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
+  deleteProject: (id: string) => void;
   toggleProjectFavorite: (projectId: string) => void;
   addFolder: (name: string) => void;
   
@@ -663,6 +666,48 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     })
   })),
 
+  updateComment: async (taskId, commentId, text) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            comments: t.comments.map(c => c.id === commentId ? { ...c, text } : c)
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({ comments: task.comments }).eq('id', taskId);
+      }
+    }
+  },
+
+  deleteComment: async (taskId, commentId) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            comments: t.comments.filter(c => c.id !== commentId)
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({ comments: task.comments }).eq('id', taskId);
+      }
+    }
+  },
+
   addProject: async (name, color, explicitId, folderId = null) => {
     const { user } = get();
     const newProject: Project = { 
@@ -705,6 +750,21 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     if (user) {
       await supabase.from('projects').update({ is_favorite: newFavorite }).eq('id', projectId);
+    }
+  },
+
+  deleteProject: async (id) => {
+    const { user } = get();
+    set((state) => ({
+      projects: state.projects.filter(p => p.id !== id),
+      tasks: state.tasks.map(t => t.projectId === id ? { ...t, projectId: null } : t),
+      activeProjectId: state.activeProjectId === id ? 'p1' : state.activeProjectId
+    }));
+    if (user) {
+      await Promise.all([
+        supabase.from('projects').delete().eq('id', id),
+        supabase.from('tasks').update({ project_id: null }).eq('project_id', id)
+      ]);
     }
   },
 
