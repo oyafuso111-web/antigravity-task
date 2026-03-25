@@ -872,18 +872,31 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     let updatedTask: Task | undefined;
     
     set((state) => {
-      return {
-        tasks: state.tasks.map(t => {
-          if (t.id === taskId) {
-            const currentDaily = t.dailyLogs?.[dateStr] || 0;
-            const delta = Math.max(0, seconds) - currentDaily;
-            const updatedDailyLogs = { ...(t.dailyLogs || {}), [dateStr]: Math.max(0, seconds) };
-            updatedTask = { ...t, accumulatedTime: Math.max(0, t.accumulatedTime + delta), dailyLogs: updatedDailyLogs };
-            return updatedTask;
-          }
-          return t;
-        })
-      };
+      const isCurrentlyTimed = state.activeTimerTaskId === taskId;
+      const now = Date.now();
+      
+      const newTasks = state.tasks.map(t => {
+        if (t.id === taskId) {
+          const currentDaily = t.dailyLogs?.[dateStr] || 0;
+          const delta = Math.max(0, seconds) - currentDaily;
+          const updatedDailyLogs = { ...(t.dailyLogs || {}), [dateStr]: Math.max(0, seconds) };
+          updatedTask = { ...t, accumulatedTime: Math.max(0, t.accumulatedTime + delta), dailyLogs: updatedDailyLogs };
+          return updatedTask;
+        }
+        return t;
+      });
+
+      if (isCurrentlyTimed && updatedTask) {
+        sessionStorage.setItem('timerStartTimestamp', now.toString());
+        sessionStorage.setItem('timerAccumulatedAtStart', updatedTask.accumulatedTime.toString());
+        return { 
+          tasks: newTasks,
+          timerStartTimestamp: now,
+          timerAccumulatedAtStart: updatedTask.accumulatedTime
+        };
+      }
+      
+      return { tasks: newTasks };
     });
 
     if (user && updatedTask) {
