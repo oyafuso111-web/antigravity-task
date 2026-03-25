@@ -32,7 +32,9 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     clearSelection,
     updateBulkTasksDate,
     setDailyLog,
-    highlightedTaskId
+    highlightedTaskId,
+    timerStartTimestamp,
+    timerTick
   } = useTaskStore();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
@@ -65,9 +67,14 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   };
 
   const todayStr = getLocalDateStr();
-  const todayTimeSecs = task.dailyLogs?.[todayStr] || 0;
-
   const isTimerActive = activeTimerTaskId === task.id;
+  
+  const liveDelta = (isTimerActive && timerStartTimestamp) 
+    ? Math.floor((timerTick - timerStartTimestamp) / 1000) 
+    : 0;
+  const todayTimeSecs = (task.dailyLogs?.[todayStr] || 0) + liveDelta;
+  const totalDisplayTime = task.accumulatedTime + liveDelta;
+  
   const project = projects.find(p => p.id === task.projectId);
   const projectDropdownRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
@@ -210,8 +217,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
           </div>
         );
       case 'time': {
-        const displayLabel = task.accumulatedTime > 0 || isTimerActive 
-            ? `${formatTime(todayTimeSecs)} (${formatTime(task.accumulatedTime)})`
+        const displayLabel = totalDisplayTime > 0 || isTimerActive 
+            ? `${formatTime(todayTimeSecs)} (${formatTime(totalDisplayTime)})`
             : '';
         return (
           <div key="time" className="task-cell cell-time" tabIndex={0}

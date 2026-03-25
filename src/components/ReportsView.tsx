@@ -55,7 +55,7 @@ const ProjectRow: React.FC<{ data: ProjectRowProps }> = ({ data }) => {
 };
 
 export const ReportsView: React.FC = () => {
-  const { tasks, projects } = useTaskStore();
+  const { tasks, projects, activeTimerTaskId, timerStartTimestamp, timerTick } = useTaskStore();
   const [period, setPeriod] = useState<Period>('weekly');
   const [periodOffset, setPeriodOffset] = useState(0);
 
@@ -96,21 +96,31 @@ export const ReportsView: React.FC = () => {
     if (!projectDaily[pId]) projectDaily[pId] = {};
     
     let taskTimeInPeriod = 0;
+    const isMeActive = task.id === activeTimerTaskId;
+    const liveDelta = (isMeActive && timerStartTimestamp) ? Math.floor((timerTick - timerStartTimestamp) / 1000) : 0;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+
     if (task.dailyLogs && Object.keys(task.dailyLogs).length > 0) {
       dateStrs.forEach(dStr => {
-        const time = task.dailyLogs![dStr] || 0;
+        let time = task.dailyLogs![dStr] || 0;
+        if (isMeActive && dStr === todayStr) {
+          time += liveDelta;
+        }
         if (time > 0) {
           projectDaily[pId][dStr] = (projectDaily[pId][dStr] || 0) + time;
           taskTimeInPeriod += time;
         }
       });
     } else {
-      // Fallback: If no daily logs exist but the task has accumulatedTime, log it on its creation/due date if it's within range
+      // Fallback
       const fallbackDate = task.dueDate ? new Date(task.dueDate) : new Date(task.createdAt);
       const fallbackDateStr = format(fallbackDate, 'yyyy-MM-dd');
-      if (dateStrs.includes(fallbackDateStr) && task.accumulatedTime > 0) {
-        projectDaily[pId][fallbackDateStr] = (projectDaily[pId][fallbackDateStr] || 0) + task.accumulatedTime;
-        taskTimeInPeriod += task.accumulatedTime;
+      let time = task.accumulatedTime;
+      if (isMeActive) time += liveDelta;
+
+      if (dateStrs.includes(fallbackDateStr) && time > 0) {
+        projectDaily[pId][fallbackDateStr] = (projectDaily[pId][fallbackDateStr] || 0) + time;
+        taskTimeInPeriod += time;
       }
     }
     

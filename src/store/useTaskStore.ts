@@ -29,6 +29,7 @@ interface TaskStore {
   activeTimerTaskId: string | null;
   timerStartTimestamp: number | null;
   timerAccumulatedAtStart: number | null;
+  timerTick: number;
   lastTimerTick: number | null;
   
   user: any | null;
@@ -284,6 +285,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   activeTimerTaskId: null,
   timerStartTimestamp: null,
   timerAccumulatedAtStart: null,
+  timerTick: Date.now(),
   lastTimerTick: null,
   
   setUser: (user) => set({ user }),
@@ -843,29 +845,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     sessionStorage.removeItem('timerAccumulatedAtStart');
   },
   
-  tickTimer: () => set((state) => {
-    if (!state.activeTimerTaskId || !state.timerStartTimestamp || state.timerAccumulatedAtStart === null) return state;
-    const now = Date.now();
-    const totalElapsedSecs = Math.floor((now - state.timerStartTimestamp) / 1000);
-    const todayStr = getLocalDateStr(new Date());
-
-    return {
-      lastTimerTick: now,
-      tasks: state.tasks.map(t => {
-        if (t.id === state.activeTimerTaskId && !t.completed) {
-          const newAcc = state.timerAccumulatedAtStart! + totalElapsedSecs;
-          // Note: splitting dailyLogs exactly on midnight wall-clock is complex with absolute math.
-          // For now, we update the current day's log relative to the start of this session.
-          // This is accurate for total time, and reasonably accurate for log distribution.
-          const dailyLogs = { ...(t.dailyLogs || {}) };
-          dailyLogs[todayStr] = (dailyLogs[todayStr] || 0) + (newAcc - t.accumulatedTime);
-          
-          return { ...t, accumulatedTime: newAcc, dailyLogs };
-        }
-        return t;
-      })
-    };
-  }),
+  tickTimer: () => set({ timerTick: Date.now() }),
 
   setDailyLog: async (taskId, dateStr, seconds) => {
     const { user } = get();
