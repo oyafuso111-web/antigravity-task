@@ -223,6 +223,8 @@ export const TaskListView: React.FC = () => {
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      if (e.nativeEvent.isComposing) return;
+      if (!newTaskTitle.trim()) return;
       e.preventDefault();
       handleAddTask();
     }
@@ -422,7 +424,10 @@ export const TaskListView: React.FC = () => {
           // Project name asc
           const pA = projects.find(p => p.id === a.projectId)?.name || '';
           const pB = projects.find(p => p.id === b.projectId)?.name || '';
-          return pA.localeCompare(pB, 'ja');
+          const projCmp = pA.localeCompare(pB, 'ja');
+          if (projCmp !== 0) return projCmp;
+          // Title asc as final tiebreaker
+          return a.title.localeCompare(b.title, 'ja');
         });
       }
     }
