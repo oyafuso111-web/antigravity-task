@@ -197,7 +197,17 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
           >
             <button 
               className="complete-btn" 
-              onClick={(e) => { e.stopPropagation(); toggleTaskCompletion(task.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Confirm if there are incomplete subtasks
+                const incompleteSubtasks = task.subtasks.filter(st => !st.completed);
+                if (incompleteSubtasks.length > 0) {
+                  if (!window.confirm(`サブタスクが${incompleteSubtasks.length}件残っていますが、完了してよいですか？`)) {
+                    return;
+                  }
+                }
+                toggleTaskCompletion(task.id);
+              }}
               title="Mark Complete"
             >
               <div className="check-circle" />
@@ -244,17 +254,6 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
               </span>
             )}
             <button
-              className="icon-btn details-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedTaskId(task.id);
-              }}
-              title="Open Details"
-              style={{ padding: '2px 6px', fontSize: '0.75rem', flexShrink: 0, display: 'flex', alignItems: 'center', opacity: 0.5 }}
-            >
-              詳細 〉
-            </button>
-            <button
               className="icon-btn delete-btn"
               onClick={(e) => {
                 e.stopPropagation();
@@ -266,6 +265,37 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
               style={{ padding: '2px 6px', fontSize: '0.75rem', flexShrink: 0, display: 'none', alignItems: 'center', opacity: 0.5, color: 'var(--priority-high)' }}
             >
               🗑️
+            </button>
+            {task.subtasks.length > 0 && (
+              <span
+                className="subtask-badge"
+                title={`サブタスク: ${task.subtasks.filter(st => st.completed).length}/${task.subtasks.length} 完了`}
+                style={{
+                  fontSize: '0.7rem',
+                  padding: '1px 5px',
+                  borderRadius: '8px',
+                  backgroundColor: task.subtasks.every(st => st.completed) ? 'rgba(37, 194, 109, 0.2)' : 'rgba(110, 68, 225, 0.15)',
+                  color: task.subtasks.every(st => st.completed) ? 'var(--priority-low)' : 'var(--brand-solid)',
+                  fontWeight: 600,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '2px'
+                }}
+              >
+                📋{task.subtasks.filter(st => !st.completed).length > 0 ? task.subtasks.filter(st => !st.completed).length : '✓'}
+              </span>
+            )}
+            <button
+              className="icon-btn details-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedTaskId(task.id);
+              }}
+              title="Open Details"
+              style={{ padding: '2px 6px', fontSize: '0.75rem', flexShrink: 0, display: 'flex', alignItems: 'center', opacity: 0.5 }}
+            >
+              詳細 〉
             </button>
           </div>
         );

@@ -11,6 +11,64 @@ interface Props {
 
 const DAYS = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa'];
 
+// Subtask item with inline editing and delete
+const SubtaskItem: React.FC<{
+  subtask: { id: string; title: string; completed: boolean };
+  taskId: string;
+  toggleSubtask: (taskId: string, subtaskId: string) => void;
+  updateSubtask: (taskId: string, subtaskId: string, title: string) => void;
+  deleteSubtask: (taskId: string, subtaskId: string) => void;
+}> = ({ subtask, taskId, toggleSubtask, updateSubtask, deleteSubtask }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(subtask.title);
+
+  return (
+    <div className="subtask-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+      <input 
+        type="checkbox" 
+        checked={subtask.completed} 
+        onChange={() => toggleSubtask(taskId, subtask.id)} 
+      />
+      {isEditing ? (
+        <input
+          autoFocus
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onBlur={() => {
+            if (editTitle.trim() && editTitle !== subtask.title) {
+              updateSubtask(taskId, subtask.id, editTitle.trim());
+            } else {
+              setEditTitle(subtask.title);
+            }
+            setIsEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+            if (e.key === 'Escape') { setEditTitle(subtask.title); setIsEditing(false); }
+          }}
+          style={{ flex: 1, border: 'none', borderBottom: '2px solid var(--brand-solid)', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontSize: 'inherit', padding: '2px 4px' }}
+        />
+      ) : (
+        <span 
+          className={subtask.completed ? 'completed' : ''}
+          onDoubleClick={() => { setEditTitle(subtask.title); setIsEditing(true); }}
+          style={{ flex: 1, cursor: 'text' }}
+        >
+          {subtask.title}
+        </span>
+      )}
+      <button
+        onClick={() => deleteSubtask(taskId, subtask.id)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.7rem', padding: '2px 4px', opacity: 0.4, flexShrink: 0 }}
+        title="Delete subtask"
+        className="subtask-delete-btn"
+      >
+        ✕
+      </button>
+    </div>
+  );
+};
+
 export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   const { 
     tasks, 
@@ -19,7 +77,9 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     updateComment,
     deleteComment,
     addSubtask, 
-    toggleSubtask, 
+    toggleSubtask,
+    updateSubtask,
+    deleteSubtask,
     setSelectedTaskId, 
     projects, 
     moveTask,
@@ -122,7 +182,15 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button 
             className={`complete-btn-large ${task.completed ? 'completed' : ''}`}
-            onClick={() => toggleTaskCompletion(taskId)}
+            onClick={() => {
+              const incompleteSubtasks = task.subtasks.filter(st => !st.completed);
+              if (incompleteSubtasks.length > 0) {
+                if (!window.confirm(`サブタスクが${incompleteSubtasks.length}件残っていますが、完了してよいですか？`)) {
+                  return;
+                }
+              }
+              toggleTaskCompletion(taskId);
+            }}
           >
             {task.completed ? '✓ Completed' : 'Mark Complete'}
           </button>
@@ -399,17 +467,17 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
         </div>
 
         <div className="detail-section">
-          <h3>Subtasks</h3>
+          <h3>Subtasks ({task.subtasks.filter(st => st.completed).length}/{task.subtasks.length})</h3>
           <div className="subtask-list">
             {task.subtasks.map(st => (
-              <div key={st.id} className="subtask-item">
-                <input 
-                  type="checkbox" 
-                  checked={st.completed} 
-                  onChange={() => toggleSubtask(taskId, st.id)} 
-                />
-                <span className={st.completed ? 'completed' : ''}>{st.title}</span>
-              </div>
+              <SubtaskItem
+                key={st.id}
+                subtask={st}
+                taskId={taskId}
+                toggleSubtask={toggleSubtask}
+                updateSubtask={updateSubtask}
+                deleteSubtask={deleteSubtask}
+              />
             ))}
             <form onSubmit={handleAddSubtask} className="add-subtask-form">
               <input 

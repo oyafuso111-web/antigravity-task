@@ -63,6 +63,8 @@ interface TaskStore {
 
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
+  updateSubtask: (taskId: string, subtaskId: string, title: string) => void;
+  deleteSubtask: (taskId: string, subtaskId: string) => void;
   addComment: (taskId: string, text: string) => void;
   updateComment: (taskId: string, commentId: string, text: string) => void;
   deleteComment: (taskId: string, commentId: string) => void;
@@ -623,31 +625,91 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  addSubtask: (taskId, title) => set((state) => ({
-    tasks: state.tasks.map((t) => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          subtasks: [...t.subtasks, { id: crypto.randomUUID(), title, completed: false }]
-        };
+  addSubtask: async (taskId, title) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map((t) => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            subtasks: [...t.subtasks, { id: crypto.randomUUID(), title, completed: false }]
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({ subtasks: task.subtasks }).eq('id', taskId);
       }
-      return t;
-    })
-  })),
+    }
+  },
 
-  toggleSubtask: (taskId, subtaskId) => set((state) => ({
-    tasks: state.tasks.map((t) => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          subtasks: t.subtasks.map((st) => 
-            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-          )
-        };
+  toggleSubtask: async (taskId, subtaskId) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map((t) => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            subtasks: t.subtasks.map((st) => 
+              st.id === subtaskId ? { ...st, completed: !st.completed } : st
+            )
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({ subtasks: task.subtasks }).eq('id', taskId);
       }
-      return t;
-    })
-  })),
+    }
+  },
+
+  updateSubtask: async (taskId, subtaskId, title) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            subtasks: t.subtasks.map(st => st.id === subtaskId ? { ...st, title } : st)
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({ subtasks: task.subtasks }).eq('id', taskId);
+      }
+    }
+  },
+
+  deleteSubtask: async (taskId, subtaskId) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            subtasks: t.subtasks.filter(st => st.id !== subtaskId)
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({ subtasks: task.subtasks }).eq('id', taskId);
+      }
+    }
+  },
 
   addComment: (taskId, text) => set((state) => ({
     tasks: state.tasks.map((t) => {
