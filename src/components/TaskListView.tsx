@@ -373,7 +373,11 @@ export const TaskListView: React.FC = () => {
           case 'date':
             if (!a.dueDate) cmp = 1;
             else if (!b.dueDate) cmp = -1;
-            else cmp = a.dueDate.localeCompare(b.dueDate);
+            else {
+              const dA = a.dueDate.slice(0, 10);
+              const dB = b.dueDate.slice(0, 10);
+              cmp = dA.localeCompare(dB);
+            }
             break;
           case 'estimatedMinutes':
             cmp = (a.estimatedMinutes || 0) - (b.estimatedMinutes || 0);
@@ -405,7 +409,9 @@ export const TaskListView: React.FC = () => {
           if (!a.dueDate && !b.dueDate) return 0;
           if (!a.dueDate) return 1;
           if (!b.dueDate) return -1;
-          return b.dueDate.localeCompare(a.dueDate);
+          const dA = a.dueDate.slice(0, 10);
+          const dB = b.dueDate.slice(0, 10);
+          return dB.localeCompare(dA);
         });
       } else {
         // Active: date asc → priority desc → project name asc
@@ -415,7 +421,9 @@ export const TaskListView: React.FC = () => {
           if (a.dueDate && !b.dueDate) return -1;
           if (!a.dueDate && b.dueDate) return 1;
           if (a.dueDate && b.dueDate) {
-            const dc = a.dueDate.localeCompare(b.dueDate);
+            const dA = a.dueDate.slice(0, 10);
+            const dB = b.dueDate.slice(0, 10);
+            const dc = dA.localeCompare(dB);
             if (dc !== 0) return dc;
           }
           // Priority desc
