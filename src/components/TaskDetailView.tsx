@@ -119,10 +119,6 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
 
   if (!task) return <div className="task-detail-panel">Task not found</div>;
 
-  const handleUpdateTitle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateTask(taskId, { title: e.target.value });
-  };
-
   const handleUpdateDescription = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     updateTask(taskId, { description: e.target.value });
   };
@@ -214,11 +210,13 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
       </div>
 
       <div className="detail-body">
-        <input 
+        <textarea 
           className="detail-title-input" 
           value={task.title} 
-          onChange={handleUpdateTitle}
+          onChange={(e) => { updateTask(taskId, { title: e.target.value }); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+          onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
           placeholder="Task Title"
+          rows={1}
         />
 
         <div className="detail-fields">

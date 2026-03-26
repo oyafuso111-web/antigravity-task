@@ -73,6 +73,7 @@ export const Topbar: React.FC = () => {
     if (task.homeBucket === 'waiting') return 'p-waiting';
     if (task.homeBucket === 'wont-do') return 'p-wont-do';
     if (task.homeBucket === 'do-later') return 'p-do-later';
+    if (task.homeBucket === 'memo') return 'p-memo';
     if (task.projectId) return task.projectId;
     return 'p1'; // inbox
   };

@@ -421,7 +421,11 @@ export const TaskListView: React.FC = () => {
           // Priority desc
           const pc = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
           if (pc !== 0) return pc;
-          // Project name asc
+          // Project name asc (null project goes last)
+          const hasProjectA = !!a.projectId;
+          const hasProjectB = !!b.projectId;
+          if (hasProjectA && !hasProjectB) return -1;
+          if (!hasProjectA && hasProjectB) return 1;
           const pA = projects.find(p => p.id === a.projectId)?.name || '';
           const pB = projects.find(p => p.id === b.projectId)?.name || '';
           const projCmp = pA.localeCompare(pB, 'ja');
