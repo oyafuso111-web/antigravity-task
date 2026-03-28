@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import type { ColumnId } from '../store/useTaskStore';
-import type { Priority, Tag, Task } from '../types';
+import type { Priority, Task } from '../types';
 import { TaskItem } from './TaskItem';
 import { parseDateText } from '../utils/dateParser';
 import {
