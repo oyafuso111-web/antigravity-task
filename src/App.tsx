@@ -4,9 +4,11 @@ import { Topbar } from './components/Topbar';
 import { TaskListView } from './components/TaskListView';
 import { CalendarView } from './components/CalendarView';
 import { TimelineView } from './components/TimelineView';
+import { TimeTrackingCalendarView } from './components/TimeTrackingCalendarView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsModal } from './components/SettingsModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileAddTaskModal } from './components/MobileAddTaskModal';
 import { TaskDetailView } from './components/TaskDetailView';
 import { useTaskStore } from './store/useTaskStore';
 import { supabase } from './lib/supabase';
@@ -218,6 +220,7 @@ function App() {
             >
               {activeTab === 'list' && <TaskListView />}
               {activeTab === 'calendar' && <CalendarView />}
+              {activeTab === 'calendar2' && <TimeTrackingCalendarView />}
               {activeTab === 'timeline' && <TimelineView />}
               {activeTab === 'reports' && <ReportsView />}
             </div>
@@ -226,6 +229,7 @@ function App() {
         </main>
 
         {isSettingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+        <MobileAddTaskModal />
         <MobileBottomNav />
       </div>
     </DndContext>

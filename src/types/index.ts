@@ -30,6 +30,12 @@ export interface Recurrence {
 
 export type HomeBucket = 'inbox' | 'wont-do' | 'do-later' | 'waiting' | 'memo';
 
+export interface TimeBlock {
+  id: string;
+  startTime: number;
+  endTime: number;
+}
+
 export interface Task {
   id: string;
   projectId: string | null;
@@ -44,6 +50,7 @@ export interface Task {
   accumulatedTime: number;
   estimatedMinutes?: number;
   dailyLogs?: Record<string, number>;
+  timeBlocks?: TimeBlock[];
   subtasks: Subtask[];
   comments: Comment[];
   order: number;

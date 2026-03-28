@@ -1,0 +1,392 @@
+.tt-calendar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  user-select: none;
+}
+
+/* ── Header ── */
+.tt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 16px 0;
+  flex-shrink: 0;
+}
+
+.tt-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tt-nav h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  min-width: 180px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.tt-nav .icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+
+.tt-nav .icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tt-today-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--brand-gradient);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.tt-today-btn:hover {
+  opacity: 0.85;
+}
+
+.tt-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.tt-summary-value {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+/* ── Grid ── */
+.tt-grid-wrapper {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-surface);
+}
+
+.tt-time-gutter {
+  flex-shrink: 0;
+  width: 56px;
+  position: relative;
+  border-right: 1px solid var(--border-color);
+}
+
+.tt-time-label {
+  position: absolute;
+  right: 8px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  transform: translateY(-50%);
+  font-variant-numeric: tabular-nums;
+}
+
+.tt-columns {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  min-width: 0;
+}
+
+.tt-day-column {
+  position: relative;
+  border-right: 1px solid var(--border-color);
+  min-width: 0;
+}
+
+.tt-day-column:last-child {
+  border-right: none;
+}
+
+/* Day header (sticky top) */
+.tt-day-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  text-align: center;
+  padding: 8px 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tt-day-header.today {
+  color: var(--brand-solid);
+}
+
+.tt-day-header .tt-day-number {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 2px;
+  color: var(--text-primary);
+}
+
+.tt-day-header.today .tt-day-number {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tt-day-header .tt-day-total {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+/* Hour grid area */
+.tt-hours-area {
+  position: relative;
+  /* 48px per hour × 24 hours = 1152px */
+  height: 1152px;
+}
+
+.tt-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--border-color);
+  opacity: 0.5;
+}
+
+.tt-half-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--border-color);
+  opacity: 0.25;
+}
+
+/* Current time indicator */
+.tt-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--priority-high);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.tt-now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--priority-high);
+}
+
+/* ── Time Blocks ── */
+.tt-block {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  overflow: hidden;
+  cursor: pointer;
+  transition: opacity var(--transition-fast), box-shadow var(--transition-fast);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 4px;
+  border-left: 3px solid rgba(0,0,0,0.15);
+  line-height: 1.3;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.tt-block:hover {
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  z-index: 6;
+}
+
+.tt-block-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255,255,255,0.95);
+}
+
+.tt-block-time {
+  font-size: 0.6rem;
+  opacity: 0.8;
+  white-space: nowrap;
+  color: rgba(255,255,255,0.8);
+}
+
+/* ── Empty state ── */
+.tt-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.tt-empty-state .tt-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.tt-empty-state p {
+  font-size: 0.9rem;
+  max-width: 280px;
+  line-height: 1.6;
+}
+
+/* ── Active Timer Indicator (Header) ── */
+.tt-active-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  background: rgba(37, 194, 109, 0.12);
+  border: 1px solid rgba(37, 194, 109, 0.3);
+  font-size: 0.8rem;
+}
+
+.tt-active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #25C26D;
+  animation: tt-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes tt-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.tt-active-task-name {
+  color: var(--text-primary);
+  font-weight: 600;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-active-timer {
+  color: #25C26D;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+/* ── Active Time Block (Calendar) ── */
+.tt-block-active {
+  animation: tt-block-glow 2s ease-in-out infinite;
+  border-left: 3px solid rgba(255,255,255,0.4) !important;
+  z-index: 5;
+}
+
+.tt-block-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.5);
+  animation: tt-block-bottom-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tt-block-glow {
+  0%, 100% { box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  50% { box-shadow: 0 2px 12px rgba(37, 194, 109, 0.35); }
+}
+
+@keyframes tt-block-bottom-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0.2; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .tt-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .tt-nav h2 {
+    font-size: 0.95rem;
+    min-width: 140px;
+  }
+
+  .tt-time-gutter {
+    width: 40px;
+  }
+
+  .tt-time-label {
+    font-size: 0.6rem;
+    right: 4px;
+  }
+
+  .tt-day-header {
+    font-size: 0.65rem;
+    padding: 4px 2px;
+  }
+
+  .tt-day-header .tt-day-number {
+    font-size: 0.9rem;
+  }
+
+  .tt-block {
+    font-size: 0.6rem;
+    padding: 1px 3px;
+  }
+
+  .tt-active-indicator {
+    padding: 3px 10px;
+    font-size: 0.7rem;
+  }
+
+  .tt-active-task-name {
+    max-width: 100px;
+  }
+}

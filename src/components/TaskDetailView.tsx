@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
-import type { Priority, Task, Recurrence } from '../types';
+import type { Priority, Task, Recurrence, TimeBlock } from '../types';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
 import { DatePickerCalendar } from './DatePickerCalendar';
 import './TaskDetailView.css';
@@ -69,6 +69,257 @@ const SubtaskItem: React.FC<{
   );
 };
 
+// Helper to format epoch ms to HH:MM string
+const epochToTimeStr = (epoch: number): string => {
+  const d = new Date(epoch);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+// Helper to format duration
+const formatBlockDuration = (startTime: number, endTime: number): string => {
+  const totalSec = Math.floor((endTime - startTime) / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+};
+
+// Helper: date string from epoch
+const epochToDateStr = (epoch: number): string => {
+  const d = new Date(epoch);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+// TimeBlocks section component
+const TimeBlocksSection: React.FC<{
+  task: Task;
+  taskId: string;
+  addTimeBlock: (taskId: string, startTime: number, endTime: number) => void;
+  updateTimeBlock: (taskId: string, blockId: string, updates: Partial<TimeBlock>) => void;
+  deleteTimeBlock: (taskId: string, blockId: string) => void;
+}> = ({ task, taskId, addTimeBlock, updateTimeBlock, deleteTimeBlock }) => {
+  const blocks = task.timeBlocks || [];
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newStartTime, setNewStartTime] = useState('');
+  const [newEndTime, setNewEndTime] = useState('');
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+
+  // Group blocks by date
+  const grouped: Record<string, TimeBlock[]> = {};
+  blocks.forEach(b => {
+    const dateKey = epochToDateStr(b.startTime);
+    if (!grouped[dateKey]) grouped[dateKey] = [];
+    grouped[dateKey].push(b);
+  });
+
+  // Sort dates descending (most recent first)
+  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+  const handleAddBlock = () => {
+    if (!newStartTime || !newEndTime) return;
+    const today = new Date();
+    const [sh, sm] = newStartTime.split(':').map(Number);
+    const [eh, em] = newEndTime.split(':').map(Number);
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), sh, sm).getTime();
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), eh, em).getTime();
+    if (end <= start) return;
+    addTimeBlock(taskId, start, end);
+    setNewStartTime('');
+    setNewEndTime('');
+    setShowAddForm(false);
+  };
+
+  const handleSaveEdit = (blockId: string) => {
+    if (!editStart || !editEnd) return;
+    const block = blocks.find(b => b.id === blockId);
+    if (!block) return;
+    const origDate = new Date(block.startTime);
+    const [sh, sm] = editStart.split(':').map(Number);
+    const [eh, em] = editEnd.split(':').map(Number);
+    const newStart = new Date(origDate.getFullYear(), origDate.getMonth(), origDate.getDate(), sh, sm).getTime();
+    const newEnd = new Date(origDate.getFullYear(), origDate.getMonth(), origDate.getDate(), eh, em).getTime();
+    if (newEnd <= newStart) return;
+    updateTimeBlock(taskId, blockId, { startTime: newStart, endTime: newEnd });
+    setEditingBlockId(null);
+  };
+
+  const totalTracked = blocks.reduce((sum, b) => sum + (b.endTime - b.startTime), 0);
+
+  return (
+    <div className="detail-section">
+      <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>⏱ Time Blocks ({blocks.length})</span>
+        {totalTracked > 0 && (
+          <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+            Total: {formatBlockDuration(0, totalTracked)}
+          </span>
+        )}
+      </h3>
+
+      {sortedDates.length === 0 && !showAddForm && (
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '8px 0' }}>
+          タイマーを使って記録するか、手動で追加してください。
+        </p>
+      )}
+
+      {sortedDates.map(dateKey => {
+        const dateBlocks = grouped[dateKey].sort((a, b) => b.startTime - a.startTime);
+        const dayTotal = dateBlocks.reduce((sum, b) => sum + (b.endTime - b.startTime), 0);
+        const displayDate = new Date(dateKey + 'T00:00:00');
+        const isToday = epochToDateStr(Date.now()) === dateKey;
+
+        return (
+          <div key={dateKey} style={{ marginBottom: '8px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '4px 0',
+              borderBottom: '1px solid var(--border-color)', marginBottom: '4px'
+            }}>
+              <span>{isToday ? '今日' : displayDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}</span>
+              <span style={{ fontWeight: 600 }}>{formatBlockDuration(0, dayTotal)}</span>
+            </div>
+
+            {dateBlocks.map(block => (
+              <div key={block.id} style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0',
+                fontSize: '0.8rem'
+              }}>
+                {editingBlockId === block.id ? (
+                  <>
+                    <input
+                      type="time"
+                      value={editStart}
+                      onChange={e => setEditStart(e.target.value)}
+                      style={{
+                        width: '75px', padding: '2px 4px', border: '1px solid var(--brand-solid)',
+                        borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
+                        fontSize: '0.8rem'
+                      }}
+                    />
+                    <span style={{ color: 'var(--text-secondary)' }}>–</span>
+                    <input
+                      type="time"
+                      value={editEnd}
+                      onChange={e => setEditEnd(e.target.value)}
+                      style={{
+                        width: '75px', padding: '2px 4px', border: '1px solid var(--brand-solid)',
+                        borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
+                        fontSize: '0.8rem'
+                      }}
+                    />
+                    <button
+                      onClick={() => handleSaveEdit(block.id)}
+                      style={{
+                        padding: '2px 8px', borderRadius: '4px', border: 'none',
+                        background: 'var(--brand-solid)', color: 'white', cursor: 'pointer', fontSize: '0.7rem'
+                      }}
+                    >✓</button>
+                    <button
+                      onClick={() => setEditingBlockId(null)}
+                      style={{
+                        padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)',
+                        background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.7rem'
+                      }}
+                    >✕</button>
+                  </>
+                ) : (
+                  <>
+                    <span
+                      style={{ cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}
+                      onClick={() => {
+                        setEditingBlockId(block.id);
+                        setEditStart(epochToTimeStr(block.startTime));
+                        setEditEnd(epochToTimeStr(block.endTime));
+                      }}
+                      title="クリックで編集"
+                    >
+                      {epochToTimeStr(block.startTime)} – {epochToTimeStr(block.endTime)}
+                    </span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginLeft: 'auto' }}>
+                      {formatBlockDuration(block.startTime, block.endTime)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (window.confirm('このタイムブロックを削除しますか？')) {
+                          deleteTimeBlock(taskId, block.id);
+                        }
+                      }}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-secondary)', fontSize: '0.65rem', padding: '2px 4px',
+                        opacity: 0.5, flexShrink: 0
+                      }}
+                      title="Delete"
+                      className="subtask-delete-btn"
+                    >🗑️</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      {showAddForm ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 0',
+          borderTop: '1px solid var(--border-color)', marginTop: '4px'
+        }}>
+          <input
+            type="time"
+            value={newStartTime}
+            onChange={e => setNewStartTime(e.target.value)}
+            style={{
+              width: '80px', padding: '4px 6px', border: '1px solid var(--border-color)',
+              borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
+              fontSize: '0.8rem'
+            }}
+          />
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>–</span>
+          <input
+            type="time"
+            value={newEndTime}
+            onChange={e => setNewEndTime(e.target.value)}
+            style={{
+              width: '80px', padding: '4px 6px', border: '1px solid var(--border-color)',
+              borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
+              fontSize: '0.8rem'
+            }}
+          />
+          <button
+            onClick={handleAddBlock}
+            style={{
+              padding: '4px 12px', borderRadius: '4px', border: 'none',
+              background: 'var(--brand-solid)', color: 'white', cursor: 'pointer', fontSize: '0.8rem'
+            }}
+          >Add</button>
+          <button
+            onClick={() => { setShowAddForm(false); setNewStartTime(''); setNewEndTime(''); }}
+            style={{
+              padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)',
+              background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem'
+            }}
+          >Cancel</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAddForm(true)}
+          style={{
+            background: 'none', border: '1px dashed var(--border-color)', borderRadius: '6px',
+            color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem', padding: '4px 12px',
+            marginTop: '4px', width: '100%', textAlign: 'center'
+          }}
+        >+ 手動で追加</button>
+      )}
+    </div>
+  );
+};
+
 export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   const { 
     tasks, 
@@ -87,7 +338,10 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     moveTask,
     toggleTaskCompletion,
     deleteTask,
-    selectedTaskIds
+    selectedTaskIds,
+    addTimeBlock,
+    updateTimeBlock,
+    deleteTimeBlock
   } = useTaskStore();
   const task = tasks.find(t => t.id === taskId);
   
@@ -649,6 +903,9 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
             </div>
           </div>
         </div>
+
+        {/* Time Blocks Section */}
+        <TimeBlocksSection task={task} taskId={taskId} addTimeBlock={addTimeBlock} updateTimeBlock={updateTimeBlock} deleteTimeBlock={deleteTimeBlock} />
 
         <div className="detail-section">
           <h3>Description</h3>

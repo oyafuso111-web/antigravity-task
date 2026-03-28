@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { Task, Project, Folder, Recurrence, HomeBucket, Tag } from '../types';
+import type { Task, Project, Folder, Recurrence, HomeBucket, Tag, TimeBlock } from '../types';
 import { supabase } from '../lib/supabase';
 
-export type AppTab = 'list' | 'calendar' | 'timeline' | 'reports';
+export type AppTab = 'list' | 'calendar' | 'calendar2' | 'timeline' | 'reports';
 export type ColumnId = 'name' | 'project' | 'time' | 'estimatedMinutes' | 'tags' | 'priority' | 'date' | 'createdAt';
 
 interface TaskStore {
@@ -16,6 +16,7 @@ interface TaskStore {
   activeTab: AppTab;
   isSettingsOpen: boolean;
   isMobileSidebarOpen: boolean;
+  isMobileAddTaskOpen: boolean;
   columnOrder: ColumnId[];
   columnWidths: Record<ColumnId, number>;
   highlightedTaskId: string | null;
@@ -44,6 +45,7 @@ interface TaskStore {
   setActiveTab: (tab: AppTab) => void;
   setSettingsOpen: (isOpen: boolean) => void;
   setMobileSidebarOpen: (isOpen: boolean) => void;
+  setMobileAddTaskOpen: (isOpen: boolean) => void;
   setSelectedTaskId: (id: string | null) => void;
   setHighlightedTaskId: (id: string | null) => void;
   setWeekStartsOn: (start: 0 | 1) => void;
@@ -86,6 +88,9 @@ interface TaskStore {
   pauseTimer: () => void;
   tickTimer: () => void;
   setDailyLog: (taskId: string, dateStr: string, seconds: number) => void;
+  addTimeBlock: (taskId: string, startTime: number, endTime: number) => void;
+  updateTimeBlock: (taskId: string, blockId: string, updates: Partial<TimeBlock>) => void;
+  deleteTimeBlock: (taskId: string, blockId: string) => void;
 }
 
 const getLocalDateStr = (d: Date = new Date()) => {
@@ -110,6 +115,7 @@ const mapTaskToDB = (t: Partial<Task>) => ({
   accumulated_time: t.accumulatedTime,
   estimated_minutes: t.estimatedMinutes,
   daily_logs: t.dailyLogs,
+  time_blocks: t.timeBlocks,
   subtasks: t.subtasks,
   comments: t.comments,
   order: t.order,
@@ -130,6 +136,7 @@ const mapDBToTask = (row: any): Task => ({
   accumulatedTime: row.accumulated_time || 0,
   estimatedMinutes: row.estimated_minutes || 0,
   dailyLogs: row.daily_logs || {},
+  timeBlocks: row.time_blocks || [],
   subtasks: row.subtasks || [],
   comments: row.comments || [],
   order: row.order || 0,
@@ -270,6 +277,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   activeTab: 'list',
   isSettingsOpen: false,
   isMobileSidebarOpen: false,
+  isMobileAddTaskOpen: false,
   highlightedTaskId: null,
   weekStartsOn: 0,
   columnOrder: ['name', 'project', 'time', 'estimatedMinutes', 'tags', 'priority', 'date', 'createdAt'],
@@ -365,6 +373,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
   setMobileSidebarOpen: (isOpen) => set({ isMobileSidebarOpen: isOpen }),
+  setMobileAddTaskOpen: (isOpen) => set({ isMobileAddTaskOpen: isOpen }),
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setHighlightedTaskId: (id) => set({ highlightedTaskId: id }),
   setWeekStartsOn: (start) => set({ weekStartsOn: start }),
@@ -942,7 +951,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const { activeTimerTaskId, tasks, user, timerStartTimestamp } = get();
     if (activeTimerTaskId) {
       const task = tasks.find(t => t.id === activeTimerTaskId);
-      if (task && user && timerStartTimestamp) {
+      if (task && timerStartTimestamp) {
         // Capture final delta
         const now = Date.now();
         const elapsed = Math.floor((now - timerStartTimestamp) / 1000);
@@ -952,15 +961,29 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         finalDailyLogs[todayStr] = (finalDailyLogs[todayStr] || 0) + elapsed;
         const finalAcc = task.accumulatedTime + elapsed;
 
-        await supabase.from('tasks').update({ 
-          accumulated_time: Math.max(0, finalAcc), 
-          daily_logs: finalDailyLogs 
-        }).eq('id', activeTimerTaskId);
-        
-        // Update local state one last time before clearing
+        // Create a new TimeBlock for this session
+        const newTimeBlock: TimeBlock = {
+          id: crypto.randomUUID(),
+          startTime: timerStartTimestamp,
+          endTime: now,
+        };
+        const updatedTimeBlocks = [...(task.timeBlocks || []), newTimeBlock];
+
+        // Update local state
         set((state) => ({
-          tasks: state.tasks.map(t => t.id === activeTimerTaskId ? { ...t, accumulatedTime: finalAcc, dailyLogs: finalDailyLogs } : t)
+          tasks: state.tasks.map(t => t.id === activeTimerTaskId 
+            ? { ...t, accumulatedTime: finalAcc, dailyLogs: finalDailyLogs, timeBlocks: updatedTimeBlocks } 
+            : t
+          )
         }));
+
+        if (user) {
+          await supabase.from('tasks').update({ 
+            accumulated_time: Math.max(0, finalAcc), 
+            daily_logs: finalDailyLogs,
+            time_blocks: updatedTimeBlocks
+          }).eq('id', activeTimerTaskId);
+        }
       }
     }
     set(() => ({ 
@@ -1013,6 +1036,103 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         accumulated_time: updatedTask.accumulatedTime,
         daily_logs: updatedTask.dailyLogs
       }).eq('id', taskId);
+    }
+  },
+
+  addTimeBlock: async (taskId, startTime, endTime) => {
+    const { user } = get();
+    const newBlock: TimeBlock = {
+      id: crypto.randomUUID(),
+      startTime,
+      endTime,
+    };
+    let updatedBlocks: TimeBlock[] = [];
+    set((state) => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          updatedBlocks = [...(t.timeBlocks || []), newBlock];
+          // Also update dailyLogs and accumulatedTime
+          const elapsed = Math.floor((endTime - startTime) / 1000);
+          const blockDate = new Date(startTime);
+          const dateStr = getLocalDateStr(blockDate);
+          const dailyLogs = { ...(t.dailyLogs || {}) };
+          dailyLogs[dateStr] = (dailyLogs[dateStr] || 0) + elapsed;
+          return { ...t, timeBlocks: updatedBlocks, accumulatedTime: t.accumulatedTime + elapsed, dailyLogs };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({
+          time_blocks: task.timeBlocks,
+          accumulated_time: task.accumulatedTime,
+          daily_logs: task.dailyLogs,
+        }).eq('id', taskId);
+      }
+    }
+  },
+
+  updateTimeBlock: async (taskId, blockId, updates) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          const oldBlocks = t.timeBlocks || [];
+          let oldDuration = 0;
+          let newDuration = 0;
+          const newBlocks = oldBlocks.map(b => {
+            if (b.id === blockId) {
+              oldDuration = Math.floor((b.endTime - b.startTime) / 1000);
+              const updated = { ...b, ...updates };
+              newDuration = Math.floor((updated.endTime - updated.startTime) / 1000);
+              return updated;
+            }
+            return b;
+          });
+          const delta = newDuration - oldDuration;
+          return { ...t, timeBlocks: newBlocks, accumulatedTime: Math.max(0, t.accumulatedTime + delta) };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({
+          time_blocks: task.timeBlocks,
+          accumulated_time: task.accumulatedTime,
+        }).eq('id', taskId);
+      }
+    }
+  },
+
+  deleteTimeBlock: async (taskId, blockId) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          const oldBlocks = t.timeBlocks || [];
+          const block = oldBlocks.find(b => b.id === blockId);
+          const blockDuration = block ? Math.floor((block.endTime - block.startTime) / 1000) : 0;
+          return {
+            ...t,
+            timeBlocks: oldBlocks.filter(b => b.id !== blockId),
+            accumulatedTime: Math.max(0, t.accumulatedTime - blockDuration)
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({
+          time_blocks: task.timeBlocks,
+          accumulated_time: task.accumulatedTime,
+        }).eq('id', taskId);
+      }
     }
   }
 }));

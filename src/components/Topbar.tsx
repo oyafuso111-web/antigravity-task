@@ -155,6 +155,7 @@ export const Topbar: React.FC = () => {
         <div className="tabs">
           <button className={`tab ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>List</button>
           <button className={`tab ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}>Calendar</button>
+          <button className={`tab ${activeTab === 'calendar2' ? 'active' : ''}`} onClick={() => setActiveTab('calendar2')}>Time Tracker</button>
           <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>Timeline</button>
           <button className={`tab ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>Reports</button>
         </div>

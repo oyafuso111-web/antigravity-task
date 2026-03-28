@@ -1,6 +1,5 @@
 import React from 'react';
 import { useTaskStore } from '../store/useTaskStore';
-import { addDays } from 'date-fns';
 import './MobileBottomNav.css';
 
 export const MobileBottomNav: React.FC = () => {
@@ -10,41 +9,11 @@ export const MobileBottomNav: React.FC = () => {
     setActiveTab, 
     activeProjectId,
     activeTab,
-    addTask 
+    setMobileAddTaskOpen
   } = useTaskStore();
 
   const handleGlobalAddTask = () => {
-    const title = window.prompt('Enter new task title:');
-    if (title && title.trim()) {
-      const now = new Date();
-      const getLocalDateStr = (d: Date) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      };
-
-      let dueDate: string | null = null;
-      if (activeProjectId === 'p-today') {
-        dueDate = getLocalDateStr(now);
-      } else if (activeProjectId === 'p-tomorrow') {
-        dueDate = getLocalDateStr(addDays(now, 1));
-      } else if (activeProjectId === 'p-thisweek') {
-        dueDate = getLocalDateStr(now);
-      } else if (activeProjectId === 'p-nextweek') {
-        dueDate = getLocalDateStr(addDays(now, 7));
-      }
-
-      addTask({
-        title: title.trim(),
-        projectId: (activeProjectId === 'p1' || activeProjectId?.startsWith('p-')) ? null : activeProjectId,
-        completed: false,
-        priority: 'none',
-        tagIds: [],
-        dueDate: dueDate,
-        homeBucket: dueDate ? null : 'inbox',
-      });
-    }
+    setMobileAddTaskOpen(true);
   };
 
   const navItems = [
@@ -56,11 +25,11 @@ export const MobileBottomNav: React.FC = () => {
       isActive: false
     },
     {
-      id: 'today',
-      label: 'Today',
-      icon: '📅',
-      onClick: () => { setActiveProject('p-today'); setActiveTab('list'); },
-      isActive: activeProjectId === 'p-today' && activeTab === 'list'
+      id: 'inbox',
+      label: 'INBOX',
+      icon: '📥',
+      onClick: () => { setActiveProject('p1'); setActiveTab('list'); },
+      isActive: activeProjectId === 'p1' && activeTab === 'list'
     },
     {
       id: 'add',
@@ -71,18 +40,18 @@ export const MobileBottomNav: React.FC = () => {
       isPrimary: true
     },
     {
-      id: 'tomorrow',
-      label: 'Tomorrow',
-      icon: '⏭️',
-      onClick: () => { setActiveProject('p-tomorrow'); setActiveTab('list'); },
-      isActive: activeProjectId === 'p-tomorrow' && activeTab === 'list'
+      id: 'today',
+      label: 'Today',
+      icon: '📌',
+      onClick: () => { setActiveProject('p-today'); setActiveTab('list'); },
+      isActive: activeProjectId === 'p-today' && activeTab === 'list'
     },
     {
-      id: 'reports',
-      label: 'Reports',
-      icon: '📊',
-      onClick: () => setActiveTab('reports'),
-      isActive: activeTab === 'reports'
+      id: 'tomorrow',
+      label: 'Tomorrow',
+      icon: '📅',
+      onClick: () => { setActiveProject('p-tomorrow'); setActiveTab('list'); },
+      isActive: activeProjectId === 'p-tomorrow' && activeTab === 'list'
     }
   ];
 
