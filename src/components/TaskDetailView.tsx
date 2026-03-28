@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
-import type { Priority } from '../types';
-import type { Recurrence } from '../types';
+import type { Priority, Task, Recurrence } from '../types';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
 import { DatePickerCalendar } from './DatePickerCalendar';
 import './TaskDetailView.css';
@@ -87,9 +86,26 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     addTag,
     moveTask,
     toggleTaskCompletion,
-    deleteTask
+    deleteTask,
+    selectedTaskIds
   } = useTaskStore();
   const task = tasks.find(t => t.id === taskId);
+  
+  const handleBatchUpdate = (updates: Partial<Task>) => {
+    if (selectedTaskIds.includes(taskId) && selectedTaskIds.length > 1) {
+      selectedTaskIds.forEach(id => updateTask(id, updates));
+    } else {
+      updateTask(taskId, updates);
+    }
+  };
+
+  const handleBatchMove = (newProjectId: string | null) => {
+    if (selectedTaskIds.includes(taskId) && selectedTaskIds.length > 1) {
+      selectedTaskIds.forEach(id => moveTask(id, newProjectId));
+    } else {
+      moveTask(taskId, newProjectId);
+    }
+  };
   
   const [newComment, setNewComment] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
@@ -153,19 +169,19 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
 
   const handleToggleRecurrence = (freq: Recurrence['frequency'] | 'none') => {
     if (freq === 'none') {
-      updateTask(taskId, { recurrence: null });
+      handleBatchUpdate({ recurrence: null });
     } else {
       const defaultRecurrence: Recurrence = { frequency: freq, interval: 1 };
       if (freq === 'monthly') {
         defaultRecurrence.dayOfMonth = new Date().getDate();
       }
-      updateTask(taskId, { recurrence: defaultRecurrence });
+      handleBatchUpdate({ recurrence: defaultRecurrence });
     }
   };
 
   const setSpecificRecurrence = (updates: Partial<Recurrence>) => {
     if (task.recurrence) {
-        updateTask(taskId, { recurrence: { ...task.recurrence, ...updates } });
+        handleBatchUpdate({ recurrence: { ...task.recurrence, ...updates } });
     }
   };
 
@@ -237,7 +253,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
             <div className="field-value">
                <select 
                  value={task.projectId || ''} 
-                 onChange={(e) => moveTask(task.id, e.target.value || null)}
+                 onChange={(e) => handleBatchMove(e.target.value || null)}
                >
                  {sortedProjects.map(p => (
                    <option key={p.id} value={p.id}>{p.name}</option>
@@ -267,7 +283,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                       <button
                         onClick={() => {
                           const newTagIds = (task.tagIds || []).filter(id => id !== tag.id);
-                          updateTask(taskId, { tagIds: newTagIds });
+                          handleBatchUpdate({ tagIds: newTagIds });
                         }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '0.7rem', padding: '0 2px', opacity: 0.6 }}
                         title="タグを削除"
@@ -362,7 +378,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                                 backgroundColor: tagSelectedIndex === idx ? 'var(--bg-hover)' : 'transparent', borderRadius: '4px'
                               }}
                               onClick={() => {
-                                updateTask(taskId, { tagIds: [...safeTagIds, t.id] });
+                                handleBatchUpdate({ tagIds: [...safeTagIds, t.id] });
                                 setShowTagDropdown(false);
                                 setTagSearch('');
                               }}
@@ -384,7 +400,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                                 const color = colors[Math.floor(Math.random() * colors.length)];
                                 const newId = crypto.randomUUID();
                                 addTag(tagSearch.trim(), color, newId);
-                                updateTask(taskId, { tagIds: [...safeTagIds, newId] });
+                                handleBatchUpdate({ tagIds: [...safeTagIds, newId] });
                                 setShowTagDropdown(false);
                                 setTagSearch('');
                               }}
@@ -407,7 +423,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
             <div className="field-value">
               <select 
                 value={task.priority} 
-                onChange={(e) => updateTask(taskId, { priority: e.target.value as Priority })}
+                onChange={(e) => handleBatchUpdate({ priority: e.target.value as Priority })}
                 style={{
                   backgroundColor: task.priority === 'none' ? 'transparent' : `var(--priority-${task.priority})`,
                   color: task.priority === 'none' ? 'var(--text-primary)' : 'white',
@@ -435,7 +451,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                 value={task.estimatedMinutes === 0 ? '' : task.estimatedMinutes} 
                 onChange={(e) => {
                   const val = parseInt(e.target.value, 10);
-                  updateTask(taskId, { estimatedMinutes: isNaN(val) ? 0 : val });
+                  handleBatchUpdate({ estimatedMinutes: isNaN(val) ? 0 : val });
                 }}
                 placeholder="0"
                 style={{
@@ -484,14 +500,14 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                           e.preventDefault();
                           const lower = dateText.toLowerCase().trim();
                           if (lower === 'clear' || lower === 'クリア') {
-                            updateTask(taskId, { dueDate: null });
+                            handleBatchUpdate({ dueDate: null });
                             setShowDateInput(false);
                             setDateText('');
                             return;
                           }
                           const parsed = parseDateText(dateText);
                           if (parsed) {
-                            updateTask(taskId, { dueDate: parsed });
+                            handleBatchUpdate({ dueDate: parsed });
                             setShowDateInput(false);
                             setDateText('');
                           }
@@ -509,7 +525,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                     {task.dueDate && (
                       <button
                         onClick={() => {
-                          updateTask(taskId, { dueDate: null });
+                          handleBatchUpdate({ dueDate: null });
                           setShowDateInput(false);
                         }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.75rem', padding: '4px', flexShrink: 0 }}
@@ -521,11 +537,11 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                   <DatePickerCalendar
                     value={task.dueDate ? task.dueDate.split('T')[0] : null}
                     onChange={(dateStr) => {
-                      updateTask(taskId, { dueDate: dateStr });
+                      handleBatchUpdate({ dueDate: dateStr });
                       setShowDateInput(false);
                     }}
                     onClear={() => {
-                      updateTask(taskId, { dueDate: null });
+                      handleBatchUpdate({ dueDate: null });
                       setShowDateInput(false);
                     }}
                   />

@@ -43,7 +43,6 @@
 .nav-item:hover {
   background-color: var(--bg-hover);
   color: var(--text-sidebar-hover);
-  transform: translateX(4px);
 }
 
 .nav-item.active {

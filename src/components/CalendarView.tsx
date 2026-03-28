@@ -106,8 +106,8 @@ const DroppableCalendarCell: React.FC<{
     }
   });
 
-  const displayTasks = isExpanded || viewType === 'week' ? dayTasks : dayTasks.slice(0, 3);
-  const hasMore = dayTasks.length > 3 && viewType === 'month';
+  const displayTasks = isExpanded ? dayTasks : dayTasks.slice(0, 3);
+  const hasMore = dayTasks.length > 3;
 
   return (
     <div

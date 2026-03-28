@@ -493,7 +493,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           const newTagIds = waitingTagId && !currentTagIds.includes(waitingTagId) 
             ? [...currentTagIds, waitingTagId] 
             : currentTagIds;
-          return { ...t, dueDate: null, homeBucket: 'waiting' as HomeBucket, tagIds: newTagIds };
+          const dropDateStr = getLocalDateStr(now);
+          const dropComment = {
+            id: crypto.randomUUID(),
+            userName: 'System',
+            text: `連絡待ちへ移動 (${dropDateStr})`,
+            createdAt: now.toISOString()
+          };
+          return { ...t, dueDate: null, homeBucket: 'waiting' as HomeBucket, tagIds: newTagIds, comments: [...(t.comments || []), dropComment] };
         }
         if (targetViewId === 'p-memo') {
           return { ...t, dueDate: null, homeBucket: 'memo' as HomeBucket };

@@ -137,7 +137,7 @@ const SortableHeader: React.FC<{
 
 export const TaskListView: React.FC = () => {
   const { 
-    tasks, projects, addTask, activeProjectId, 
+    tasks, projects, tags, addProject, addTag, addTask, activeProjectId, 
     columnOrder, columnWidths, setColumnWidth,
     sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, setSortConfig
   } = useTaskStore();
@@ -148,6 +148,30 @@ export const TaskListView: React.FC = () => {
   const [newTaskTagsText, setNewTaskTagsText] = useState('');
   const [newTaskDateText, setNewTaskDateText] = useState('');
   const addTaskInputRef = useRef<HTMLInputElement>(null);
+
+  const [showNewTaskProjectDropdown, setShowNewTaskProjectDropdown] = useState(false);
+  const [newTaskProjectSearch, setNewTaskProjectSearch] = useState('');
+  const [newTaskProjectSelectedIndex, setNewTaskProjectSelectedIndex] = useState(0);
+  const newTaskProjectDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [newTaskTagIds, setNewTaskTagIds] = useState<string[]>([]);
+  const [showNewTaskTagDropdown, setShowNewTaskTagDropdown] = useState(false);
+  const [newTaskTagSearch, setNewTaskTagSearch] = useState('');
+  const [newTaskTagSelectedIndex, setNewTaskTagSelectedIndex] = useState(0);
+  const newTaskTagDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (newTaskProjectDropdownRef.current && !newTaskProjectDropdownRef.current.contains(e.target as Node)) {
+        setShowNewTaskProjectDropdown(false);
+      }
+      if (newTaskTagDropdownRef.current && !newTaskTagDropdownRef.current.contains(e.target as Node)) {
+        setShowNewTaskTagDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   useEffect(() => {
     setNewTaskProjectId((activeProjectId === 'p1' || activeProjectId?.startsWith('p-')) ? null : activeProjectId);
@@ -190,11 +214,7 @@ export const TaskListView: React.FC = () => {
       }
     }
 
-    const newTags: Tag[] = newTaskTagsText.split(',').map(t => {
-      const name = t.trim();
-      if (!name) return null;
-      return { id: crypto.randomUUID(), name, color: 'var(--brand-solid)' };
-    }).filter(Boolean) as Tag[];
+
 
     let finalHomeBucket: any = null;
     if (!finalDueDate) {
@@ -211,14 +231,16 @@ export const TaskListView: React.FC = () => {
       completed: false,
       priority: newTaskPriority,
       estimatedMinutes: 0,
-      tagIds: newTags.map(t => t.id),
+      tagIds: newTaskTagIds, // Use populated array
       dueDate: finalDueDate,
       homeBucket: finalHomeBucket
     });
     setNewTaskTitle('');
     setNewTaskDateText('');
-    setNewTaskTagsText('');
+    setNewTaskTagIds([]);
+    setNewTaskTagsText(''); // Keep around for compatibility if needed elsewhere
     setNewTaskPriority('none');
+    setNewTaskProjectId(null); // Reset to Select Project
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
@@ -239,6 +261,11 @@ export const TaskListView: React.FC = () => {
       const input = target as HTMLInputElement;
       if (e.key === 'ArrowLeft' && input.selectionStart !== 0) return;
       if (e.key === 'ArrowRight' && (input.selectionEnd !== input.value.length)) return;
+    }
+
+    // Allow native select dropdown navigation
+    if (target.tagName === 'SELECT' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      return;
     }
 
     e.preventDefault();
@@ -451,6 +478,19 @@ export const TaskListView: React.FC = () => {
     return activeTasks.reduce((sum: number, task: Task) => sum + (task.estimatedMinutes || 0), 0);
   }, [activeTasks]);
 
+  const filteredNewTaskProjects = projects.filter(p => 
+    p.id !== 'p1' && p.name.toLowerCase().includes(newTaskProjectSearch.toLowerCase())
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  
+  const newTaskProject = projects.find(p => p.id === newTaskProjectId);
+
+  const safeTags = tags || [];
+  const newTaskTags = newTaskTagIds.map(id => safeTags.find(t => t.id === id)).filter(Boolean) as {id: string, name: string, color: string}[];
+  const filteredNewTaskTags = safeTags.filter(t => 
+    t.name.toLowerCase().includes(newTaskTagSearch.toLowerCase()) && 
+    !newTaskTagIds.includes(t.id)
+  );
+
   const getHeaderLabel = (id: ColumnId) => {
     if (id === 'estimatedMinutes') {
       const h = Math.floor(totalEstimatedMinutes / 60);
@@ -515,18 +555,161 @@ export const TaskListView: React.FC = () => {
                 );
               case 'project':
                 return (
-                  <div key="project" className="task-cell cell-project">
-                    <select 
-                      value={newTaskProjectId || ''} 
-                      onChange={e => setNewTaskProjectId(e.target.value || null)}
-                      onKeyDown={handleInputKeyDown}
-                      style={{ width: '100%', background: 'transparent', border: '1px solid transparent', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer' }}
-                      onFocus={e => e.target.style.borderColor = 'var(--border-color)'}
-                      onBlur={e => e.target.style.borderColor = 'transparent'}
-                    >
-                      {[...projects].sort((a, b) => a.name.localeCompare(b.name, 'ja')).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      <option value="">No Project</option>
-                    </select>
+                  <div key="project" className="task-cell cell-project" tabIndex={0}
+                    style={{ width: `${columnWidths.project}px`, minWidth: `${columnWidths.project}px`, maxWidth: `${columnWidths.project}px`, flexShrink: 0, flexGrow: 0, position: 'relative', overflow: 'visible' }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowNewTaskProjectDropdown(true);
+                        setNewTaskProjectSearch('');
+                      }
+                    }}
+                  >
+                    <div className="project-selector-wrapper" ref={newTaskProjectDropdownRef} style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%' }}>
+                      <span 
+                        className="pill project-pill"
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', flex: 1, overflow: 'hidden' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNewTaskProjectDropdown(!showNewTaskProjectDropdown);
+                          setNewTaskProjectSearch('');
+                        }}
+                        title={newTaskProject ? `${newTaskProject.name}` : 'プロジェクトを選択'}
+                      >
+                        {newTaskProject ? (
+                          <>
+                            <span className="color-dot" style={{ backgroundColor: newTaskProject.color, width: '8px', height: '8px', borderRadius: '50%' }}></span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{newTaskProject.name}</span>
+                          </>
+                        ) : <span style={{opacity: 0.6}}>No Project</span>}
+                      </span>
+                      <button
+                        className="project-change-btn"
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', padding: '2px 4px', flexShrink: 0, borderRadius: '3px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNewTaskProjectDropdown(!showNewTaskProjectDropdown);
+                          setNewTaskProjectSearch('');
+                        }}
+                      >
+                        ›
+                      </button>
+                      
+                      {showNewTaskProjectDropdown && (
+                        <div className="project-dropdown" style={{
+                          position: 'absolute', bottom: '100%', left: 0, zIndex: 100, // Show above row
+                          backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
+                          borderRadius: '6px', padding: '4px', marginBottom: '4px', minWidth: '180px',
+                          boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
+                          maxHeight: '240px', display: 'flex', flexDirection: 'column'
+                        }}>
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Search or create..."
+                            value={newTaskProjectSearch}
+                            onChange={(e) => {
+                              setNewTaskProjectSearch(e.target.value);
+                              setNewTaskProjectSelectedIndex(0);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowUp') {
+                                e.preventDefault(); e.stopPropagation();
+                                setNewTaskProjectSelectedIndex(prev => Math.max(0, prev - 1));
+                              } else if (e.key === 'ArrowDown') {
+                                e.preventDefault(); e.stopPropagation();
+                                const maxIdx = newTaskProjectSearch.trim() && !projects.find(p => p.name.toLowerCase() === newTaskProjectSearch.toLowerCase().trim()) ? filteredNewTaskProjects.length + 1 : Math.max(0, filteredNewTaskProjects.length);
+                                setNewTaskProjectSelectedIndex(prev => Math.min(maxIdx, prev + 1));
+                              } else if (e.key === 'Enter') {
+                                if (e.nativeEvent.isComposing) return;
+                                e.preventDefault(); e.stopPropagation();
+                                if (filteredNewTaskProjects.length === 0 && !newTaskProjectSearch.trim()) {
+                                  setShowNewTaskProjectDropdown(false);
+                                  return;
+                                }
+                                if (newTaskProjectSelectedIndex === 0) {
+                                  setNewTaskProjectId(null); // No project
+                                } else if (newTaskProjectSelectedIndex <= filteredNewTaskProjects.length) {
+                                  setNewTaskProjectId(filteredNewTaskProjects[newTaskProjectSelectedIndex - 1].id);
+                                } else if (newTaskProjectSearch.trim()) {
+                                  const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                                  const color = colors[Math.floor(Math.random() * colors.length)];
+                                  const newId = crypto.randomUUID();
+                                  addProject(newTaskProjectSearch.trim(), color, newId);
+                                  setNewTaskProjectId(newId);
+                                }
+                                setShowNewTaskProjectDropdown(false);
+                                setNewTaskProjectSearch('');
+                                setNewTaskProjectSelectedIndex(0);
+                                setTimeout(() => addTaskInputRef.current?.focus(), 0); // Focus back to input
+                              } else if (e.key === 'Escape') {
+                                setShowNewTaskProjectDropdown(false);
+                              }
+                            }}
+                            style={{
+                              width: '100%', padding: '6px 8px', border: 'none',
+                              borderBottom: '1px solid var(--border-color)',
+                              background: 'transparent', color: 'var(--text-primary)',
+                              fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box'
+                            }}
+                          />
+                          <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <div 
+                              className="project-dropdown-item"
+                              style={{ 
+                                padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
+                                backgroundColor: newTaskProjectSelectedIndex === 0 ? 'var(--bg-hover)' : 'transparent'
+                              }}
+                              onClick={() => { setNewTaskProjectId(null); setShowNewTaskProjectDropdown(false); setNewTaskProjectSearch(''); setTimeout(() => addTaskInputRef.current?.focus(), 0); }}
+                              onMouseEnter={() => setNewTaskProjectSelectedIndex(0)}
+                            >
+                              <span className="color-dot" style={{ backgroundColor: 'transparent', border: '1px dashed var(--border-color)', width: '8px', height: '8px', borderRadius: '50%' }}></span>
+                              No Project
+                            </div>
+                            {filteredNewTaskProjects.map((p, idx) => (
+                              <div 
+                                key={p.id} className="project-dropdown-item"
+                                style={{ 
+                                  padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
+                                  backgroundColor: newTaskProjectSelectedIndex === idx + 1 ? 'var(--bg-hover)' : 'transparent'
+                                }}
+                                onClick={() => { setNewTaskProjectId(p.id); setShowNewTaskProjectDropdown(false); setNewTaskProjectSearch(''); setTimeout(() => addTaskInputRef.current?.focus(), 0); }}
+                                onMouseEnter={() => setNewTaskProjectSelectedIndex(idx + 1)}
+                              >
+                                <span className="color-dot" style={{ backgroundColor: p.color, width: '8px', height: '8px', borderRadius: '50%' }}></span>
+                                {p.name}
+                              </div>
+                            ))}
+                            {newTaskProjectSearch.trim() && !projects.find(p => p.name.toLowerCase() === newTaskProjectSearch.toLowerCase().trim()) && (
+                              <div 
+                                className="project-dropdown-item create-new"
+                                style={{
+                                  padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                                  borderRadius: '4px', borderTop: '1px solid var(--border-color)', marginTop: '4px', color: 'var(--brand-solid)', fontWeight: 500,
+                                  backgroundColor: newTaskProjectSelectedIndex === filteredNewTaskProjects.length + 1 ? 'var(--bg-hover)' : 'transparent'
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                                  const color = colors[Math.floor(Math.random() * colors.length)];
+                                  const newId = crypto.randomUUID();
+                                  addProject(newTaskProjectSearch.trim(), color, newId);
+                                  setNewTaskProjectId(newId);
+                                  setShowNewTaskProjectDropdown(false);
+                                  setNewTaskProjectSearch('');
+                                  setTimeout(() => addTaskInputRef.current?.focus(), 0);
+                                }}
+                                onMouseEnter={() => setNewTaskProjectSelectedIndex(filteredNewTaskProjects.length + 1)}
+                              >
+                                + "{newTaskProjectSearch.trim()}" を新規作成
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               case 'priority':
@@ -555,12 +738,158 @@ export const TaskListView: React.FC = () => {
                 );
               case 'tags':
                 return (
-                  <div key="tags" className="task-cell cell-tags" style={{ width: `${columnWidths.tags}px`, minWidth: `${columnWidths.tags}px`, maxWidth: `${columnWidths.tags}px`, flexShrink: 0, flexGrow: 0 }}>
-                     <input type="text" placeholder="Tags (comma separated)"
-                       value={newTaskTagsText} onChange={(e) => setNewTaskTagsText(e.target.value)}
-                       onKeyDown={handleInputKeyDown}
-                       style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)' }}
-                     />
+                  <div key="tags" className="task-cell cell-tags" tabIndex={0}
+                    style={{ width: `${columnWidths.tags}px`, minWidth: `${columnWidths.tags}px`, maxWidth: `${columnWidths.tags}px`, flexShrink: 0, flexGrow: 0, position: 'relative', overflow: 'visible' }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowNewTaskTagDropdown(true);
+                        setNewTaskTagSearch('');
+                      }
+                    }}
+                  >
+                    <div className="tag-selector-wrapper" ref={newTaskTagDropdownRef} style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', width: '100%', minHeight: '22px' }}>
+                      {newTaskTags.map(tag => (
+                        <span 
+                          key={tag.id} 
+                          className="pill tag-pill" 
+                          style={{ backgroundColor: tag.color + '33', color: tag.color, display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          {tag.name}
+                          <button
+                            className="tag-delete-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewTaskTagIds(prev => prev.filter(id => id !== tag.id));
+                            }}
+                            title="タグを削除"
+                            style={{ background: 'none', border: 'none', color: tag.color, cursor: 'pointer', padding: 0, fontSize: '0.9rem', lineHeight: 1 }}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                      <button 
+                        className="add-tag-btn"
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.875rem', padding: '0 4px', opacity: newTaskTags.length ? 1 : 0.6 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNewTaskTagDropdown(!showNewTaskTagDropdown);
+                          setNewTaskTagSearch('');
+                        }}
+                      >
+                        {newTaskTags.length ? '+' : 'Tags...'}
+                      </button>
+
+                      {showNewTaskTagDropdown && (
+                        <div className="tag-dropdown" style={{
+                           position: 'absolute', bottom: '100%', left: 0, zIndex: 100, // Show above row
+                           backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
+                           borderRadius: '6px', padding: '4px', marginBottom: '4px', minWidth: '180px',
+                           boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
+                           maxHeight: '240px', display: 'flex', flexDirection: 'column'
+                        }}>
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Search or create..."
+                            value={newTaskTagSearch}
+                            onChange={(e) => {
+                              setNewTaskTagSearch(e.target.value);
+                              setNewTaskTagSelectedIndex(0);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowUp') {
+                                e.preventDefault(); e.stopPropagation();
+                                setNewTaskTagSelectedIndex(prev => Math.max(0, prev - 1));
+                              } else if (e.key === 'ArrowDown') {
+                                e.preventDefault(); e.stopPropagation();
+                                const maxIdx = newTaskTagSearch.trim() && !safeTags.find(t => t.name.toLowerCase() === newTaskTagSearch.toLowerCase().trim()) ? filteredNewTaskTags.length : Math.max(0, filteredNewTaskTags.length - 1);
+                                setNewTaskTagSelectedIndex(prev => Math.min(maxIdx, prev + 1));
+                              } else if (e.key === 'Enter') {
+                                if (e.nativeEvent.isComposing) return;
+                                e.preventDefault(); e.stopPropagation();
+                                if (filteredNewTaskTags.length === 0 && !newTaskTagSearch.trim()) {
+                                  setShowNewTaskTagDropdown(false);
+                                  return;
+                                }
+                                if (newTaskTagSelectedIndex < filteredNewTaskTags.length) {
+                                  // Selected existing tag
+                                  const existing = filteredNewTaskTags[newTaskTagSelectedIndex];
+                                  if (!newTaskTagIds.includes(existing.id)) {
+                                     setNewTaskTagIds(prev => [...prev, existing.id]);
+                                  }
+                                } else if (newTaskTagSearch.trim()) {
+                                  // Create new tag
+                                  const colors = ['#888888', '#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                                  const color = colors[Math.floor(Math.random() * colors.length)];
+                                  const newId = crypto.randomUUID();
+                                  addTag(newTaskTagSearch.trim(), color, newId);
+                                  setNewTaskTagIds(prev => [...prev, newId]);
+                                }
+                                setShowNewTaskTagDropdown(false);
+                                setNewTaskTagSearch('');
+                                setNewTaskTagSelectedIndex(0);
+                                setTimeout(() => addTaskInputRef.current?.focus(), 0);
+                              } else if (e.key === 'Escape') {
+                                setShowNewTaskTagDropdown(false);
+                              }
+                            }}
+                            style={{
+                              width: '100%', padding: '6px 8px', border: 'none',
+                              borderBottom: '1px solid var(--border-color)',
+                              background: 'transparent', color: 'var(--text-primary)', outline: 'none'
+                            }}
+                          />
+                          <div style={{ overflowY: 'auto', flex: 1 }}>
+                            {filteredNewTaskTags.map((t, idx) => (
+                              <div 
+                                key={t.id}
+                                style={{ 
+                                  padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem',
+                                  backgroundColor: newTaskTagSelectedIndex === idx ? 'var(--bg-hover)' : 'transparent'
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNewTaskTagIds(prev => [...prev, t.id]);
+                                  setShowNewTaskTagDropdown(false);
+                                  setNewTaskTagSearch('');
+                                  setTimeout(() => addTaskInputRef.current?.focus(), 0);
+                                }}
+                                onMouseEnter={() => setNewTaskTagSelectedIndex(idx)}
+                              >
+                                <span className="color-dot" style={{ backgroundColor: t.color, width: '8px', height: '8px', borderRadius: '50%' }}></span>
+                                {t.name}
+                              </div>
+                            ))}
+                            {newTaskTagSearch.trim() && !safeTags.find(t => t.name.toLowerCase() === newTaskTagSearch.toLowerCase().trim()) && (
+                              <div
+                                style={{ 
+                                  padding: '6px 8px', cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--brand-solid)', borderTop: filteredNewTaskTags.length > 0 ? '1px solid var(--border-color)' : 'none',
+                                  backgroundColor: newTaskTagSelectedIndex === filteredNewTaskTags.length ? 'var(--bg-hover)' : 'transparent'
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const colors = ['#888888', '#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                                  const color = colors[Math.floor(Math.random() * colors.length)];
+                                  const newId = crypto.randomUUID();
+                                  addTag(newTaskTagSearch.trim(), color, newId);
+                                  setNewTaskTagIds(prev => [...prev, newId]);
+                                  setShowNewTaskTagDropdown(false);
+                                  setNewTaskTagSearch('');
+                                  setTimeout(() => addTaskInputRef.current?.focus(), 0);
+                                }}
+                                onMouseEnter={() => setNewTaskTagSelectedIndex(filteredNewTaskTags.length)}
+                              >
+                                + "{newTaskTagSearch.trim()}" を新規作成
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               case 'date':

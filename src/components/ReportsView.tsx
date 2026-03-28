@@ -171,7 +171,13 @@ export const ReportsView: React.FC = () => {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => `${ctx.dataset.label}: ${ctx.raw.toFixed(2)}h`
+          label: (ctx: any) => {
+            const hoursFlo = ctx.raw as number;
+            const totalMinutes = Math.round(hoursFlo * 60);
+            const h = Math.floor(totalMinutes / 60);
+            const m = totalMinutes % 60;
+            return `${ctx.dataset.label}: ${h}h ${m}m`;
+          }
         }
       }
     },

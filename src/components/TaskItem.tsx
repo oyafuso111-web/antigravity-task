@@ -63,6 +63,22 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   const [dateText, setDateText] = useState('');
   const dateInputRef = useRef<HTMLDivElement>(null);
 
+  const handleBatchUpdate = (updates: Partial<Task>) => {
+    if (selectedTaskIds.length > 1 && selectedTaskIds.includes(task.id)) {
+      selectedTaskIds.forEach(id => updateTask(id, updates));
+    } else {
+      updateTask(task.id, updates);
+    }
+  };
+
+  const handleProjectUpdate = (newProjectId: string) => {
+    if (selectedTaskIds.length > 1 && selectedTaskIds.includes(task.id)) {
+      selectedTaskIds.forEach(id => moveTask(id, newProjectId));
+    } else {
+      moveTask(task.id, newProjectId);
+    }
+  };
+
   const getLocalDateStr = (d: Date = new Date()) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -241,18 +257,26 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                 style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontSize: 'inherit', fontFamily: 'inherit', padding: '2px 4px', borderBottom: '2px solid var(--brand-solid)' }}
               />
             ) : (
-              <span 
-                className="task-title"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditTitleValue(task.title);
-                  setIsEditingTitle(true);
-                }}
-                style={{ cursor: 'text' }}
-              >
-                {isTimerActive && <span className="timer-indicator">⏱️ </span>}
-                {task.title}
-              </span>
+              <div style={{ flex: 1, display: 'flex', minWidth: 0, alignItems: 'center' }}>
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditTitleValue(task.title);
+                    setIsEditingTitle(true);
+                  }}
+                  style={{ 
+                    cursor: 'text', 
+                    whiteSpace: 'nowrap', 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis', 
+                    maxWidth: '100%' 
+                  }}
+                  title={task.title}
+                >
+                  {isTimerActive && <span className="timer-indicator" style={{ marginRight: '4px' }}>⏱️ </span>}
+                  {task.title}
+                </span>
+              </div>
             )}
             <button
               className="icon-btn delete-btn"
@@ -459,13 +483,13 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                            return;
                          }
                          if (projectSelectedIndex < filteredProjects.length) {
-                           moveTask(task.id, filteredProjects[projectSelectedIndex].id);
+                           handleProjectUpdate(filteredProjects[projectSelectedIndex].id);
                          } else if (projectSearch.trim()) {
                            const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
                            const color = colors[Math.floor(Math.random() * colors.length)];
                            const newId = crypto.randomUUID();
                            addProject(projectSearch.trim(), color, newId);
-                           moveTask(task.id, newId);
+                           handleProjectUpdate(newId);
                          }
                          setShowProjectDropdown(false);
                          setProjectSearch('');
@@ -487,7 +511,12 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                            padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
                            backgroundColor: projectSelectedIndex === idx ? 'var(--bg-hover)' : 'transparent'
                          }}
-                         onClick={() => { moveTask(task.id, p.id); setShowProjectDropdown(false); setProjectSearch(''); }}
+                         onClick={(e) => { 
+                           e.stopPropagation(); 
+                           handleProjectUpdate(p.id); 
+                           setShowProjectDropdown(false); 
+                           setProjectSearch(''); 
+                         }}
                          onMouseEnter={() => setProjectSelectedIndex(idx)}
                        >
                          <span className="color-dot" style={{ backgroundColor: p.color, width: '8px', height: '8px', borderRadius: '50%' }}></span>
@@ -508,7 +537,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                            const color = colors[Math.floor(Math.random() * colors.length)];
                            const newId = crypto.randomUUID();
                            addProject(projectSearch.trim(), color, newId);
-                           moveTask(task.id, newId);
+                           handleProjectUpdate(newId);
                            setShowProjectDropdown(false);
                            setProjectSearch('');
                          }}
@@ -619,14 +648,14 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                         if (tagSelectedIndex < filteredTags.length) {
                           const existing = filteredTags[tagSelectedIndex];
                           if (!safeTagIds.includes(existing.id)) {
-                            updateTask(task.id, { tagIds: [...safeTagIds, existing.id] });
+                            handleBatchUpdate({ tagIds: [...safeTagIds, existing.id] });
                           }
                         } else if (tagSearch.trim()) {
                           const colors = ['#888888', '#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
                           const color = colors[Math.floor(Math.random() * colors.length)];
                           const newId = crypto.randomUUID();
                           addTag(tagSearch.trim(), color, newId);
-                          updateTask(task.id, { tagIds: [...safeTagIds, newId] });
+                          handleBatchUpdate({ tagIds: [...safeTagIds, newId] });
                         }
                         setShowTagDropdown(false);
                         setTagSearch('');
@@ -649,7 +678,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          updateTask(task.id, { tagIds: [...safeTagIds, t.id] });
+                          handleBatchUpdate({ tagIds: [...safeTagIds, t.id] });
                           setShowTagDropdown(false);
                           setTagSearch('');
                         }}
@@ -671,7 +700,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                           const color = colors[Math.floor(Math.random() * colors.length)];
                           const newId = crypto.randomUUID();
                           addTag(tagSearch.trim(), color, newId);
-                          updateTask(task.id, { tagIds: [...safeTagIds, newId] });
+                          handleBatchUpdate({ tagIds: [...safeTagIds, newId] });
                           setShowTagDropdown(false);
                           setTagSearch('');
                         }}
@@ -701,7 +730,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
           >
             <select
               value={task.priority}
-              onChange={(e) => updateTask(task.id, { priority: e.target.value as any })}
+              onChange={(e) => handleBatchUpdate({ priority: e.target.value as any })}
+              onClick={(e) => e.stopPropagation()}
               style={{
                 backgroundColor: getPriorityColor(task.priority),
                 color: task.priority === 'none' ? 'var(--text-secondary)' : 'white',

@@ -128,9 +128,11 @@ export const Sidebar: React.FC = () => {
   const [newProjectName, setNewProjectName] = useState('');
   const [smartViewExpanded, setSmartViewExpanded] = useState(false);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
   const [homeExpanded, setHomeExpanded] = useState(false);
 
   const MAX_VISIBLE_PROJECTS = 5;
+  const MAX_VISIBLE_TAGS = 5;
 
   const handleNavClick = (id: string) => {
     setActiveProject(id);
@@ -154,6 +156,13 @@ export const Sidebar: React.FC = () => {
 
   const visibleProjects = projectsExpanded ? sortedProjects : sortedProjects.slice(0, MAX_VISIBLE_PROJECTS);
   const hasMoreProjects = sortedProjects.length > MAX_VISIBLE_PROJECTS;
+
+  const sortedTags = useMemo(() => {
+    return [...tags].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  }, [tags]);
+
+  const visibleTags = tagsExpanded ? sortedTags : sortedTags.slice(0, MAX_VISIBLE_TAGS);
+  const hasMoreTags = sortedTags.length > MAX_VISIBLE_TAGS;
 
   const handleAddProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,10 +349,23 @@ export const Sidebar: React.FC = () => {
       <div className="sidebar-section" style={{ marginTop: '16px' }}>
         <h3 className="section-title">Tags</h3>
         <ul className="nav-list tags-list">
-          {tags.map(tag => (
+          {visibleTags.map(tag => (
             <EditableTag key={tag.id} tag={tag} />
           ))}
         </ul>
+        
+        {hasMoreTags && !tagsExpanded && (
+          <button className="expand-btn" onClick={() => setTagsExpanded(true)}>
+            <span className="expand-icon">▼</span>
+            他 {sortedTags.length - MAX_VISIBLE_TAGS} 件を表示
+          </button>
+        )}
+        {tagsExpanded && hasMoreTags && (
+          <button className="expand-btn" onClick={() => setTagsExpanded(false)}>
+            <span className="expand-icon expanded">▼</span>
+            折りたたむ
+          </button>
+        )}
       </div>
 
       <div className="sidebar-section" style={{ marginTop: 'auto', borderBottom: 'none' }}>
