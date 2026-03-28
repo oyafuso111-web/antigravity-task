@@ -3,6 +3,7 @@ import { useTaskStore } from '../store/useTaskStore';
 import type { Priority } from '../types';
 import type { Recurrence } from '../types';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
+import { DatePickerCalendar } from './DatePickerCalendar';
 import './TaskDetailView.css';
 
 interface Props {
@@ -82,6 +83,8 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     deleteSubtask,
     setSelectedTaskId, 
     projects, 
+    tags,
+    addTag,
     moveTask,
     toggleTaskCompletion,
     deleteTask
@@ -95,6 +98,12 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   const [dateText, setDateText] = useState('');
   const dateInputRef = useRef<HTMLDivElement>(null);
 
+  // Tag selector state
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const [tagSearch, setTagSearch] = useState('');
+  const [tagSelectedIndex, setTagSelectedIndex] = useState(0);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
+
   // Comment editing state
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
@@ -103,6 +112,9 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     const handleClickOutsideDate = (event: MouseEvent) => {
       if (dateInputRef.current && !dateInputRef.current.contains(event.target as Node)) {
         setShowDateInput(false);
+      }
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(event.target as Node)) {
+        setShowTagDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutsideDate);
@@ -236,6 +248,161 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
           </div>
 
           <div className="field-group">
+            <label>Tags</label>
+            <div className="field-value" ref={tagDropdownRef} style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                {(task.tagIds || []).map(tagId => {
+                  const tag = (tags || []).find(t => t.id === tagId);
+                  if (!tag) return null;
+                  return (
+                    <span
+                      key={tag.id}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 500,
+                        backgroundColor: tag.color + '33', color: tag.color
+                      }}
+                    >
+                      {tag.name}
+                      <button
+                        onClick={() => {
+                          const newTagIds = (task.tagIds || []).filter(id => id !== tag.id);
+                          updateTask(taskId, { tagIds: newTagIds });
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '0.7rem', padding: '0 2px', opacity: 0.6 }}
+                        title="タグを削除"
+                      >✕</button>
+                    </span>
+                  );
+                })}
+                <button
+                  onClick={() => { setShowTagDropdown(!showTagDropdown); setTagSearch(''); setTagSelectedIndex(0); }}
+                  style={{
+                    background: 'none', border: '1px dashed var(--border-color)', borderRadius: '12px',
+                    color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem', padding: '2px 10px'
+                  }}
+                >+ Add</button>
+              </div>
+              {showTagDropdown && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, zIndex: 20,
+                  backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
+                  borderRadius: '6px', padding: '4px', marginTop: '4px', minWidth: '200px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '240px', display: 'flex', flexDirection: 'column'
+                }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search or create..."
+                    value={tagSearch}
+                    onChange={(e) => { setTagSearch(e.target.value); setTagSelectedIndex(0); }}
+                    onKeyDown={(e) => {
+                      const safeTags = tags || [];
+                      const safeTagIds = task.tagIds || [];
+                      const filteredTags = safeTags.filter(t => 
+                        t.name.toLowerCase().includes(tagSearch.toLowerCase()) && 
+                        !safeTagIds.includes(t.id)
+                      );
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setTagSelectedIndex(prev => Math.max(0, prev - 1));
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        const maxIdx = tagSearch.trim() && !safeTags.find(t => t.name.toLowerCase() === tagSearch.toLowerCase().trim()) ? filteredTags.length : Math.max(0, filteredTags.length - 1);
+                        setTagSelectedIndex(prev => Math.min(maxIdx, prev + 1));
+                      } else if (e.key === 'Enter') {
+                        if (e.nativeEvent.isComposing) return;
+                        e.preventDefault();
+                        const safeTagIds2 = task.tagIds || [];
+                        if (filteredTags.length === 0 && !tagSearch.trim()) {
+                          setShowTagDropdown(false);
+                          return;
+                        }
+                        if (tagSelectedIndex < filteredTags.length) {
+                          const existing = filteredTags[tagSelectedIndex];
+                          if (!safeTagIds2.includes(existing.id)) {
+                            updateTask(taskId, { tagIds: [...safeTagIds2, existing.id] });
+                          }
+                        } else if (tagSearch.trim()) {
+                          const colors = ['#888888', '#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                          const color = colors[Math.floor(Math.random() * colors.length)];
+                          const newId = crypto.randomUUID();
+                          addTag(tagSearch.trim(), color, newId);
+                          updateTask(taskId, { tagIds: [...safeTagIds2, newId] });
+                        }
+                        setShowTagDropdown(false);
+                        setTagSearch('');
+                        setTagSelectedIndex(0);
+                      } else if (e.key === 'Escape') {
+                        setShowTagDropdown(false);
+                      }
+                    }}
+                    style={{
+                      width: '100%', padding: '6px 8px', border: 'none',
+                      borderBottom: '1px solid var(--border-color)',
+                      background: 'transparent', color: 'var(--text-primary)', outline: 'none',
+                      fontSize: '0.85rem', boxSizing: 'border-box'
+                    }}
+                  />
+                  <div style={{ overflowY: 'auto', flex: 1 }}>
+                    {(() => {
+                      const safeTags = tags || [];
+                      const safeTagIds = task.tagIds || [];
+                      const filteredTags = safeTags.filter(t => 
+                        t.name.toLowerCase().includes(tagSearch.toLowerCase()) && 
+                        !safeTagIds.includes(t.id)
+                      );
+                      return (
+                        <>
+                          {filteredTags.map((t, idx) => (
+                            <div
+                              key={t.id}
+                              style={{
+                                padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem',
+                                backgroundColor: tagSelectedIndex === idx ? 'var(--bg-hover)' : 'transparent', borderRadius: '4px'
+                              }}
+                              onClick={() => {
+                                updateTask(taskId, { tagIds: [...safeTagIds, t.id] });
+                                setShowTagDropdown(false);
+                                setTagSearch('');
+                              }}
+                              onMouseEnter={() => setTagSelectedIndex(idx)}
+                            >
+                              <span style={{ backgroundColor: t.color, width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0 }}></span>
+                              {t.name}
+                            </div>
+                          ))}
+                          {tagSearch.trim() && !safeTags.find(t => t.name.toLowerCase() === tagSearch.toLowerCase().trim()) && (
+                            <div
+                              style={{
+                                padding: '6px 8px', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--brand-solid)',
+                                borderTop: filteredTags.length > 0 ? '1px solid var(--border-color)' : 'none',
+                                backgroundColor: tagSelectedIndex === filteredTags.length ? 'var(--bg-hover)' : 'transparent', borderRadius: '4px'
+                              }}
+                              onClick={() => {
+                                const colors = ['#888888', '#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                                const color = colors[Math.floor(Math.random() * colors.length)];
+                                const newId = crypto.randomUUID();
+                                addTag(tagSearch.trim(), color, newId);
+                                updateTask(taskId, { tagIds: [...safeTagIds, newId] });
+                                setShowTagDropdown(false);
+                                setTagSearch('');
+                              }}
+                              onMouseEnter={() => setTagSelectedIndex(filteredTags.length)}
+                            >
+                              + "{tagSearch.trim()}" を新規作成
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="field-group">
             <label>Priority</label>
             <div className="field-value">
               <select 
@@ -297,56 +464,69 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                 {task.dueDate ? formatDateDisplay(task.dueDate) : '📅 Set Date'}
               </span>
               {showDateInput && (
-                <div style={{
+                <div className="date-picker-dropdown" style={{
                   position: 'absolute', top: '100%', left: 0, zIndex: 20,
                   backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
-                  borderRadius: '6px', padding: '8px', marginTop: '4px', minWidth: '220px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  borderRadius: '8px', padding: '12px', marginTop: '4px', minWidth: '260px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.18)'
                 }}>
-                  <input
-                    autoFocus
-                    type="text"
-                    placeholder="today, 明日, 3/25, 月曜..."
-                    value={dateText}
-                    onChange={(e) => setDateText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const lower = dateText.toLowerCase().trim();
-                        if (lower === 'clear' || lower === 'クリア') {
+                  {/* Text input for natural language */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', flexShrink: 0 }}>📅</span>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="today, 明日, monday, 3/25..."
+                      value={dateText}
+                      onChange={(e) => setDateText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const lower = dateText.toLowerCase().trim();
+                          if (lower === 'clear' || lower === 'クリア') {
+                            updateTask(taskId, { dueDate: null });
+                            setShowDateInput(false);
+                            setDateText('');
+                            return;
+                          }
+                          const parsed = parseDateText(dateText);
+                          if (parsed) {
+                            updateTask(taskId, { dueDate: parsed });
+                            setShowDateInput(false);
+                            setDateText('');
+                          }
+                        }
+                        if (e.key === 'Escape') {
+                          setShowDateInput(false);
+                        }
+                      }}
+                      style={{
+                        flex: 1, padding: '6px 8px', border: '1px solid var(--border-color)',
+                        borderRadius: '6px', background: 'var(--bg-app)', color: 'var(--text-primary)',
+                        fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
+                      }}
+                    />
+                    {task.dueDate && (
+                      <button
+                        onClick={() => {
                           updateTask(taskId, { dueDate: null });
                           setShowDateInput(false);
-                          setDateText('');
-                          return;
-                        }
-                        const parsed = parseDateText(dateText);
-                        if (parsed) {
-                          updateTask(taskId, { dueDate: parsed });
-                          setShowDateInput(false);
-                          setDateText('');
-                        }
-                      }
-                      if (e.key === 'Escape') {
-                        setShowDateInput(false);
-                      }
-                    }}
-                    style={{
-                      width: '100%', padding: '6px 8px', border: '1px solid var(--border-color)',
-                      borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
-                      fontSize: '0.85rem', outline: 'none', marginBottom: '8px', boxSizing: 'border-box'
-                    }}
-                  />
-                  <input
-                    type="date"
-                    value={task.dueDate ? task.dueDate.split('T')[0] : ''}
-                    onChange={(e) => {
-                      updateTask(taskId, { dueDate: e.target.value || null });
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.75rem', padding: '4px', flexShrink: 0 }}
+                        title="クリア"
+                      >✕</button>
+                    )}
+                  </div>
+                  {/* Calendar */}
+                  <DatePickerCalendar
+                    value={task.dueDate ? task.dueDate.split('T')[0] : null}
+                    onChange={(dateStr) => {
+                      updateTask(taskId, { dueDate: dateStr });
                       setShowDateInput(false);
                     }}
-                    style={{
-                      width: '100%', padding: '6px 8px', border: '1px solid var(--border-color)',
-                      borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
-                      fontSize: '0.85rem', cursor: 'pointer', boxSizing: 'border-box'
+                    onClear={() => {
+                      updateTask(taskId, { dueDate: null });
+                      setShowDateInput(false);
                     }}
                   />
                 </div>

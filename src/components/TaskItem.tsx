@@ -5,6 +5,7 @@ import type { ColumnId } from '../store/useTaskStore';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
+import { DatePickerCalendar } from './DatePickerCalendar';
 import './TaskItem.css';
 
 interface Props {
@@ -750,56 +751,69 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
               {displayDate || '📅 set'}
             </span>
             {showDateInput && (
-              <div style={{
+              <div className="date-picker-dropdown" style={{
                 position: 'absolute', top: '100%', left: 0, zIndex: 20,
                 backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
-                borderRadius: '6px', padding: '8px', marginTop: '4px', minWidth: '180px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                borderRadius: '8px', padding: '12px', marginTop: '4px', minWidth: '260px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.18)'
               }} onClick={e => e.stopPropagation()}>
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="today, 明日, 3/25..."
-                  value={dateText}
-                  onChange={(e) => setDateText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const lower = dateText.toLowerCase().trim();
-                      if (lower === 'clear' || lower === 'クリア') {
+                {/* Text input for natural language */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', flexShrink: 0 }}>📅</span>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="today, 明日, monday, 3/25..."
+                    value={dateText}
+                    onChange={(e) => setDateText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const lower = dateText.toLowerCase().trim();
+                        if (lower === 'clear' || lower === 'クリア') {
+                          handleDateUpdate(null);
+                          setShowDateInput(false);
+                          setDateText('');
+                          return;
+                        }
+                        const parsed = parseDateText(dateText);
+                        if (parsed) {
+                          handleDateUpdate(parsed);
+                          setShowDateInput(false);
+                          setDateText('');
+                        }
+                      }
+                      if (e.key === 'Escape') {
+                        setShowDateInput(false);
+                      }
+                    }}
+                    style={{
+                      flex: 1, padding: '6px 8px', border: '1px solid var(--border-color)',
+                      borderRadius: '6px', background: 'var(--bg-app)', color: 'var(--text-primary)',
+                      fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box'
+                    }}
+                  />
+                  {task.dueDate && (
+                    <button
+                      onClick={() => {
                         handleDateUpdate(null);
                         setShowDateInput(false);
-                        setDateText('');
-                        return;
-                      }
-                      const parsed = parseDateText(dateText);
-                      if (parsed) {
-                        handleDateUpdate(parsed);
-                        setShowDateInput(false);
-                        setDateText('');
-                      }
-                    }
-                    if (e.key === 'Escape') {
-                      setShowDateInput(false);
-                    }
-                  }}
-                  style={{
-                    width: '100%', padding: '4px 6px', border: '1px solid var(--border-color)',
-                    borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
-                    fontSize: '0.8rem', outline: 'none', marginBottom: '6px', boxSizing: 'border-box'
-                  }}
-                />
-                <input
-                  type="date"
-                  value={task.dueDate ? task.dueDate.split('T')[0] : ''}
-                  onChange={(e) => {
-                    handleDateUpdate(e.target.value || null);
+                      }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.75rem', padding: '4px', flexShrink: 0 }}
+                      title="クリア"
+                    >✕</button>
+                  )}
+                </div>
+                {/* Calendar */}
+                <DatePickerCalendar
+                  value={task.dueDate ? task.dueDate.split('T')[0] : null}
+                  onChange={(dateStr) => {
+                    handleDateUpdate(dateStr);
                     setShowDateInput(false);
                   }}
-                  style={{
-                    width: '100%', padding: '4px 6px', border: '1px solid var(--border-color)',
-                    borderRadius: '4px', background: 'var(--bg-app)', color: 'var(--text-primary)',
-                    fontSize: '0.8rem', cursor: 'pointer', boxSizing: 'border-box'
+                  onClear={() => {
+                    handleDateUpdate(null);
+                    setShowDateInput(false);
                   }}
                 />
               </div>
