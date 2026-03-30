@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
+import { sortProjectsCustom } from '../utils/sortUtils';
 import './MobileAddTaskModal.css';
 
 export const MobileAddTaskModal: React.FC = () => {
@@ -161,7 +162,7 @@ export const MobileAddTaskModal: React.FC = () => {
             <label>Project</label>
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               <option value="">INBOX (No Project)</option>
-              {projects.filter(p => p.id !== 'p1').map(p => (
+              {projects.filter(p => p.id !== 'p1').sort((a,b)=>sortProjectsCustom(a.name, b.name)).map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>

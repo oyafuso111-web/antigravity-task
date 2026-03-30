@@ -6,6 +6,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
 import { DatePickerCalendar } from './DatePickerCalendar';
+import { sortProjectsCustom } from '../utils/sortUtils';
 import './TaskItem.css';
 
 interface Props {
@@ -186,7 +187,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
 
   const filteredProjects = projects.filter(p => 
     p.id !== 'p1' && p.name.toLowerCase().includes(projectSearch.toLowerCase())
-  ).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  ).sort((a, b) => sortProjectsCustom(a.name, b.name));
 
   const handleRowClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -560,7 +561,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
         const filteredTags = safeTags.filter(t => 
           t.name.toLowerCase().includes(tagSearch.toLowerCase()) && 
           !safeTagIds.includes(t.id)
-        );
+        ).sort((a,b)=>sortProjectsCustom(a.name, b.name));
 
         return (
           <div key="tags" className="task-cell cell-tags" tabIndex={0}

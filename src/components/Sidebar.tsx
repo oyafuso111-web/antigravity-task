@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useDroppable } from '@dnd-kit/core';
+import { sortProjectsCustom } from '../utils/sortUtils';
 import './Sidebar.css';
 
 // Droppable sidebar item for smart views and home buckets
@@ -160,14 +161,14 @@ export const Sidebar: React.FC = () => {
     setMobileSidebarOpen(false);
   };
 
-  // Sort projects: favorites first, then alphabetical
+  // Sort projects: favorites first, then custom alphanumeric -> kana/kanji -> emoji
   const sortedProjects = useMemo(() => {
     return [...projects]
       .filter(p => p.id !== 'p1')
       .sort((a, b) => {
         if (a.isFavorite && !b.isFavorite) return -1;
         if (!a.isFavorite && b.isFavorite) return 1;
-        return a.name.localeCompare(b.name, 'ja');
+        return sortProjectsCustom(a.name, b.name);
       });
   }, [projects]);
 
@@ -175,7 +176,7 @@ export const Sidebar: React.FC = () => {
   const hasMoreProjects = sortedProjects.length > MAX_VISIBLE_PROJECTS;
 
   const sortedTags = useMemo(() => {
-    return [...tags].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    return [...tags].sort((a, b) => sortProjectsCustom(a.name, b.name));
   }, [tags]);
 
   const visibleTags = tagsExpanded ? sortedTags : sortedTags.slice(0, MAX_VISIBLE_TAGS);
