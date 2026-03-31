@@ -72,7 +72,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     }
   };
 
-  const handleProjectUpdate = (newProjectId: string) => {
+  const handleProjectUpdate = (newProjectId: string | null) => {
     if (selectedTaskIds.length > 1 && selectedTaskIds.includes(task.id)) {
       selectedTaskIds.forEach(id => moveTask(id, newProjectId));
     } else {
@@ -477,17 +477,15 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                          setProjectSelectedIndex(prev => Math.max(0, prev - 1));
                        } else if (e.key === 'ArrowDown') {
                          e.preventDefault(); e.stopPropagation();
-                         const maxIdx = projectSearch.trim() && !projects.find(p => p.name.toLowerCase() === projectSearch.toLowerCase().trim()) ? filteredProjects.length : Math.max(0, filteredProjects.length - 1);
+                         const maxIdx = projectSearch.trim() && !projects.find(p => p.name.toLowerCase() === projectSearch.toLowerCase().trim()) ? filteredProjects.length + 1 : Math.max(0, filteredProjects.length);
                          setProjectSelectedIndex(prev => Math.min(maxIdx, prev + 1));
                        } else if (e.key === 'Enter') {
                          if (e.nativeEvent.isComposing) return;
                          e.preventDefault(); e.stopPropagation();
-                         if (filteredProjects.length === 0 && !projectSearch.trim()) {
-                           setShowProjectDropdown(false);
-                           return;
-                         }
-                         if (projectSelectedIndex < filteredProjects.length) {
-                           handleProjectUpdate(filteredProjects[projectSelectedIndex].id);
+                         if (projectSelectedIndex === 0) {
+                           handleProjectUpdate(null);
+                         } else if (projectSelectedIndex - 1 < filteredProjects.length) {
+                           handleProjectUpdate(filteredProjects[projectSelectedIndex - 1].id);
                          } else if (projectSearch.trim()) {
                            const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
                            const color = colors[Math.floor(Math.random() * colors.length)];
@@ -508,12 +506,29 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                      }}
                    />
                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                     <div 
+                       className="project-dropdown-item"
+                       style={{ 
+                         padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
+                         backgroundColor: projectSelectedIndex === 0 ? 'var(--bg-hover)' : 'transparent'
+                       }}
+                       onClick={(e) => { 
+                         e.stopPropagation(); 
+                         handleProjectUpdate(null); 
+                         setShowProjectDropdown(false); 
+                         setProjectSearch(''); 
+                       }}
+                       onMouseEnter={() => setProjectSelectedIndex(0)}
+                     >
+                       <span className="color-dot" style={{ backgroundColor: 'transparent', border: '1px dashed var(--border-color)', width: '8px', height: '8px', borderRadius: '50%' }}></span>
+                       No Project
+                     </div>
                      {filteredProjects.map((p, idx) => (
                        <div 
                          key={p.id} className="project-dropdown-item"
                          style={{ 
                            padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
-                           backgroundColor: projectSelectedIndex === idx ? 'var(--bg-hover)' : 'transparent'
+                           backgroundColor: projectSelectedIndex === idx + 1 ? 'var(--bg-hover)' : 'transparent'
                          }}
                          onClick={(e) => { 
                            e.stopPropagation(); 
@@ -521,7 +536,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                            setShowProjectDropdown(false); 
                            setProjectSearch(''); 
                          }}
-                         onMouseEnter={() => setProjectSelectedIndex(idx)}
+                         onMouseEnter={() => setProjectSelectedIndex(idx + 1)}
                        >
                          <span className="color-dot" style={{ backgroundColor: p.color, width: '8px', height: '8px', borderRadius: '50%' }}></span>
                          {p.name}
@@ -533,7 +548,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                          style={{
                            padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
                            borderRadius: '4px', borderTop: '1px solid var(--border-color)', marginTop: '4px', color: 'var(--brand-solid)', fontWeight: 500,
-                           backgroundColor: projectSelectedIndex === filteredProjects.length ? 'var(--bg-hover)' : 'transparent'
+                           backgroundColor: projectSelectedIndex === filteredProjects.length + 1 ? 'var(--bg-hover)' : 'transparent'
                          }}
                          onClick={(e) => {
                            e.stopPropagation();
@@ -545,7 +560,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                            setShowProjectDropdown(false);
                            setProjectSearch('');
                          }}
-                         onMouseEnter={() => setProjectSelectedIndex(filteredProjects.length)}
+                         onMouseEnter={() => setProjectSelectedIndex(filteredProjects.length + 1)}
                        >
                          + "{projectSearch.trim()}" を新規作成
                        </div>
