@@ -224,7 +224,7 @@ function App() {
               {activeTab === 'timeline' && <TimelineView />}
               {activeTab === 'reports' && <ReportsView />}
             </div>
-            {selectedTaskId && <TaskDetailView taskId={selectedTaskId} />}
+            {selectedTaskId && <TaskDetailView key={selectedTaskId} taskId={selectedTaskId} />}
           </div>
         </main>
 

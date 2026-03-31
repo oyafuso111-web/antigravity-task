@@ -361,7 +361,15 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     }
   };
   
-  const [newComment, setNewComment] = useState('');
+  const [newComment, setNewComment] = useState(() => sessionStorage.getItem(`draft_comment_${taskId}`) || '');
+  useEffect(() => {
+    if (newComment) {
+      sessionStorage.setItem(`draft_comment_${taskId}`, newComment);
+    } else {
+      sessionStorage.removeItem(`draft_comment_${taskId}`);
+    }
+  }, [newComment, taskId]);
+
   const [newSubtask, setNewSubtask] = useState('');
   
   const [showDateInput, setShowDateInput] = useState(false);

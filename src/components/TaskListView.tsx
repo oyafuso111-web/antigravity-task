@@ -241,7 +241,7 @@ export const TaskListView: React.FC = () => {
     setNewTaskTagIds([]);
     setNewTaskTagsText(''); // Keep around for compatibility if needed elsewhere
     setNewTaskPriority('none');
-    setNewTaskProjectId(null); // Reset to Select Project
+    setNewTaskProjectId((activeProjectId === 'p1' || activeProjectId?.startsWith('p-') || activeProjectId?.startsWith('t-')) ? null : activeProjectId);
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {

@@ -245,6 +245,9 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                   setIsEditingTitle(false);
                 }}
                 onKeyDown={(e) => {
+                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    e.stopPropagation();
+                  }
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     (e.target as HTMLInputElement).blur();

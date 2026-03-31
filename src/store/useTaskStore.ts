@@ -727,22 +727,31 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  addComment: (taskId, text) => set((state) => ({
-    tasks: state.tasks.map((t) => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          comments: [...t.comments, {
-            id: crypto.randomUUID(),
-            userName: 'You',
-            text,
-            createdAt: new Date().toISOString()
-          }]
-        };
+  addComment: async (taskId, text) => {
+    const { user } = get();
+    set((state) => ({
+      tasks: state.tasks.map((t) => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            comments: [...t.comments, {
+              id: crypto.randomUUID(),
+              userName: 'You',
+              text,
+              createdAt: new Date().toISOString()
+            }]
+          };
+        }
+        return t;
+      })
+    }));
+    if (user) {
+      const task = get().tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabase.from('tasks').update({ comments: task.comments }).eq('id', taskId);
       }
-      return t;
-    })
-  })),
+    }
+  },
 
   updateComment: async (taskId, commentId, text) => {
     const { user } = get();
@@ -839,10 +848,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       activeProjectId: state.activeProjectId === id ? 'p1' : state.activeProjectId
     }));
     if (user) {
-      await Promise.all([
-        supabase.from('projects').delete().eq('id', id),
-        supabase.from('tasks').update({ project_id: null }).eq('project_id', id)
-      ]);
+      await supabase.from('tasks').update({ project_id: null }).eq('project_id', id);
+      await supabase.from('projects').delete().eq('id', id);
     }
   },
 
