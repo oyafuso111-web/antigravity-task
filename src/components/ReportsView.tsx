@@ -12,7 +12,6 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, ChartTooltip, Le
 type Period = 'daily' | 'weekly' | 'monthly';
 
 interface TaskDateEntry {
-  id: string;
   title: string;
   date: string;       // yyyy-MM-dd
   dateDisplay: string; // yyyy/MM/dd
@@ -54,10 +53,10 @@ const ProjectRow: React.FC<{ data: ProjectRowProps }> = ({ data }) => {
       </div>
       
       {expanded && data.tasks.map((t, idx) => (
-        <div key={`${t.id}-${t.date}-${idx}`} className="report-table-row child-row">
+        <div key={`${t.title}-${t.date}-${idx}`} className="report-table-row child-row">
           <div className="col-name">{t.title}</div>
           <div className="col-date">
-            <span className="task-date-badge">{t.dateDisplay}</span>
+            {t.dateDisplay && <span className="task-date-badge">{t.dateDisplay}</span>}
           </div>
           <div className="col-duration">{formatTime(t.time)}</div>
           <div className="col-percent">{t.percent}</div>
@@ -72,7 +71,8 @@ export const ReportsView: React.FC = () => {
   const [period, setPeriod] = useState<Period>('weekly');
   const [periodOffset, setPeriodOffset] = useState(0);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  // Task filter now uses title (name) instead of ID for grouping
+  const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
 
   const handlePeriodChange = (p: Period) => {
     setPeriod(p);
@@ -81,7 +81,7 @@ export const ReportsView: React.FC = () => {
 
   const handleProjectFilterChange = (pId: string | null) => {
     setSelectedProjectId(pId);
-    setSelectedTaskId(null); // Reset task filter when project changes
+    setSelectedTaskTitle(null); // Reset task filter when project changes
   };
 
   const baseDate = useMemo(() => {
@@ -105,8 +105,8 @@ export const ReportsView: React.FC = () => {
   const dateStrs = useMemo(() => dateRange.map(d => format(d, 'yyyy-MM-dd')), [dateRange]);
   const labels = useMemo(() => dateRange.map(d => period === 'monthly' ? format(d, 'd') : format(d, 'EEE MM/dd')), [dateRange, period]);
 
-  // Filter tasks by selected project/task
-  const filteredTasks = useMemo(() => {
+  // Filter tasks by selected project (task title filter is applied later at aggregation)
+  const projectFilteredTasks = useMemo(() => {
     let result = tasks;
     if (selectedProjectId) {
       if (selectedProjectId === 'no-project') {
@@ -115,49 +115,56 @@ export const ReportsView: React.FC = () => {
         result = result.filter(t => t.projectId === selectedProjectId);
       }
     }
-    if (selectedTaskId) {
-      result = result.filter(t => t.id === selectedTaskId);
-    }
     return result;
-  }, [tasks, selectedProjectId, selectedTaskId]);
+  }, [tasks, selectedProjectId]);
 
-  // Available tasks for the task filter (scoped to selected project)
-  const availableTasksForFilter = useMemo(() => {
-    let pool = tasks;
-    if (selectedProjectId) {
-      if (selectedProjectId === 'no-project') {
-        pool = pool.filter(t => !t.projectId);
-      } else {
-        pool = pool.filter(t => t.projectId === selectedProjectId);
-      }
+  // Further filter by task title (includes all tasks with matching name)
+  const filteredTasks = useMemo(() => {
+    if (selectedTaskTitle) {
+      return projectFilteredTasks.filter(t => t.title === selectedTaskTitle);
     }
-    // Only include tasks with time data
-    return pool.filter(t => {
-      if (t.accumulatedTime > 0) return true;
-      if (t.dailyLogs && Object.values(t.dailyLogs).some(v => v > 0)) return true;
-      if (t.id === activeTimerTaskId) return true;
-      return false;
+    return projectFilteredTasks;
+  }, [projectFilteredTasks, selectedTaskTitle]);
+
+  // Available UNIQUE task titles for the task filter dropdown (scoped to selected project)
+  const availableTaskTitlesForFilter = useMemo(() => {
+    const titleSet = new Map<string, boolean>(); // title -> hasTimeData
+    projectFilteredTasks.forEach(t => {
+      const hasTime = t.accumulatedTime > 0
+        || (t.dailyLogs && Object.values(t.dailyLogs).some(v => v > 0))
+        || t.id === activeTimerTaskId;
+      if (hasTime) {
+        titleSet.set(t.title, true);
+      } else if (!titleSet.has(t.title)) {
+        titleSet.set(t.title, false);
+      }
     });
-  }, [tasks, selectedProjectId, activeTimerTaskId]);
+    // Only return titles that have time data
+    return Array.from(titleSet.entries())
+      .filter(([, hasTime]) => hasTime)
+      .map(([title]) => title)
+      .sort((a, b) => a.localeCompare(b));
+  }, [projectFilteredTasks, activeTimerTaskId]);
 
   // Check if filter is active (not "all")
-  const isFiltered = selectedProjectId !== null || selectedTaskId !== null;
+  const isFiltered = selectedProjectId !== null || selectedTaskTitle !== null;
 
-  // Aggregate time (from filteredTasks)
+  // ─── Aggregate time (from filteredTasks) ───
+  // Project-level aggregation
   const projectTotals: Record<string, number> = {};
   const projectDaily: Record<string, Record<string, number>> = {};
-  const taskTotals: Record<string, number> = {};
-  // Per-task per-date time (for table date display)
-  const taskDailyTimes: Record<string, Record<string, number>> = {};
-  // Per-task daily data for filtered chart
-  const taskDaily: Record<string, Record<string, number>> = {};
+  // Task-title-level aggregation (grouping same-named tasks together)
+  // Key: "projectId::title" to be unique within a project
+  const titleGroupDaily: Record<string, Record<string, number>> = {};
+  const titleGroupTotals: Record<string, number> = {};
 
   filteredTasks.forEach(task => {
     const pId = task.projectId || 'no-project';
+    const titleKey = `${pId}::${task.title}`;
     if (!projectTotals[pId]) projectTotals[pId] = 0;
     if (!projectDaily[pId]) projectDaily[pId] = {};
-    if (!taskDailyTimes[task.id]) taskDailyTimes[task.id] = {};
-    if (!taskDaily[task.id]) taskDaily[task.id] = {};
+    if (!titleGroupDaily[titleKey]) titleGroupDaily[titleKey] = {};
+    if (!titleGroupTotals[titleKey]) titleGroupTotals[titleKey] = 0;
     
     let taskTimeInPeriod = 0;
     const isMeActive = task.id === activeTimerTaskId;
@@ -172,8 +179,7 @@ export const ReportsView: React.FC = () => {
         }
         if (time > 0) {
           projectDaily[pId][dStr] = (projectDaily[pId][dStr] || 0) + time;
-          taskDailyTimes[task.id][dStr] = (taskDailyTimes[task.id][dStr] || 0) + time;
-          taskDaily[task.id][dStr] = (taskDaily[task.id][dStr] || 0) + time;
+          titleGroupDaily[titleKey][dStr] = (titleGroupDaily[titleKey][dStr] || 0) + time;
           taskTimeInPeriod += time;
         }
       });
@@ -186,15 +192,30 @@ export const ReportsView: React.FC = () => {
 
       if (dateStrs.includes(fallbackDateStr) && time > 0) {
         projectDaily[pId][fallbackDateStr] = (projectDaily[pId][fallbackDateStr] || 0) + time;
-        taskDailyTimes[task.id][fallbackDateStr] = (taskDailyTimes[task.id][fallbackDateStr] || 0) + time;
-        taskDaily[task.id][fallbackDateStr] = (taskDaily[task.id][fallbackDateStr] || 0) + time;
+        titleGroupDaily[titleKey][fallbackDateStr] = (titleGroupDaily[titleKey][fallbackDateStr] || 0) + time;
         taskTimeInPeriod += time;
       }
     }
     
     projectTotals[pId] += taskTimeInPeriod;
-    taskTotals[task.id] = taskTimeInPeriod;
+    titleGroupTotals[titleKey] += taskTimeInPeriod;
   });
+
+  // Also build a global title-grouped daily for the selected task title filter (across projects)
+  const selectedTitleDaily = useMemo(() => {
+    if (!selectedTaskTitle) return {};
+    const daily: Record<string, number> = {};
+    Object.entries(titleGroupDaily).forEach(([key, dayMap]) => {
+      const title = key.split('::').slice(1).join('::');
+      if (title === selectedTaskTitle) {
+        Object.entries(dayMap).forEach(([dStr, time]) => {
+          daily[dStr] = (daily[dStr] || 0) + time;
+        });
+      }
+    });
+    return daily;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTaskTitle, titleGroupDaily]);
 
   const totalPeriodTime = Object.values(projectTotals).reduce((sum, val) => sum + val, 0);
 
@@ -221,36 +242,39 @@ export const ReportsView: React.FC = () => {
 
   // Build chart data depending on filter state
   const barChartData = useMemo(() => {
-    if (selectedTaskId) {
-      // Single task view: single dataset (bar chart for the task)
-      const task = filteredTasks.find(t => t.id === selectedTaskId);
-      const taskName = task?.title || 'Task';
-      const pId = task?.projectId || 'no-project';
+    if (selectedTaskTitle) {
+      // Single task-title view: bar chart for the merged title
+      const pId = selectedProjectId || (filteredTasks.length > 0 ? (filteredTasks[0].projectId || 'no-project') : 'no-project');
       const info = getProjectInfo(pId);
       return {
         labels,
         datasets: [{
-          label: taskName,
+          label: selectedTaskTitle,
           backgroundColor: info.color,
-          data: dateStrs.map(dStr => (taskDaily[selectedTaskId]?.[dStr] || 0) / 3600),
+          data: dateStrs.map(dStr => (selectedTitleDaily[dStr] || 0) / 3600),
           borderRadius: 4,
           barPercentage: 0.6,
         }]
       };
     } else if (selectedProjectId) {
-      // Filtered by project: show individual tasks as separate datasets
-      const tasksWithTime = filteredTasks.filter(t => taskTotals[t.id] > 0);
+      // Filtered by project: show grouped-by-title tasks as separate datasets
+      const titleKeys = Object.keys(titleGroupTotals)
+        .filter(k => k.startsWith(`${selectedProjectId}::`) && titleGroupTotals[k] > 0)
+        .sort((a, b) => titleGroupTotals[b] - titleGroupTotals[a]);
       const colors = ['#6A44E1', '#E85D75', '#25C26D', '#E89A2D', '#2D9CDB', '#9B59B6', '#1ABC9C', '#E67E22', '#3498DB', '#E74C3C'];
       return {
         labels,
-        datasets: tasksWithTime.map((task, idx) => ({
-          label: task.title,
-          backgroundColor: colors[idx % colors.length],
-          data: dateStrs.map(dStr => (taskDaily[task.id]?.[dStr] || 0) / 3600),
-          stack: 'Stack 0',
-          borderRadius: 4,
-          barPercentage: 0.6,
-        }))
+        datasets: titleKeys.map((titleKey, idx) => {
+          const title = titleKey.split('::').slice(1).join('::');
+          return {
+            label: title,
+            backgroundColor: colors[idx % colors.length],
+            data: dateStrs.map(dStr => (titleGroupDaily[titleKey]?.[dStr] || 0) / 3600),
+            stack: 'Stack 0',
+            borderRadius: 4,
+            barPercentage: 0.6,
+          };
+        })
       };
     } else {
       // All: stacked by project
@@ -270,13 +294,13 @@ export const ReportsView: React.FC = () => {
       };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTasks, labels, dateStrs, selectedProjectId, selectedTaskId, validProjectIds, taskDaily, projectDaily]);
+  }, [filteredTasks, labels, dateStrs, selectedProjectId, selectedTaskTitle, validProjectIds, titleGroupDaily, titleGroupTotals, projectDaily, selectedTitleDaily]);
 
   const barChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: isFiltered && !selectedTaskId },
+      legend: { display: isFiltered && !selectedTaskTitle },
       tooltip: {
         callbacks: {
           label: (ctx: any) => {
@@ -290,23 +314,23 @@ export const ReportsView: React.FC = () => {
       }
     },
     scales: {
-      x: { stacked: !selectedTaskId, grid: { display: false } },
-      y: { stacked: !selectedTaskId, beginAtZero: true, border: { display: false }, ticks: { callback: (val: any) => val + 'h' } }
+      x: { stacked: !selectedTaskTitle, grid: { display: false } },
+      y: { stacked: !selectedTaskTitle, beginAtZero: true, border: { display: false }, ticks: { callback: (val: any) => val + 'h' } }
     }
-  }), [isFiltered, selectedTaskId]);
+  }), [isFiltered, selectedTaskTitle]);
 
   // 2. Doughnut Chart
   const pieChartData = useMemo(() => {
-    if (selectedTaskId) {
-      // Single task: show daily distribution
-      const daysWithData = dateStrs.filter(d => (taskDaily[selectedTaskId]?.[d] || 0) > 0);
+    if (selectedTaskTitle) {
+      // Single task title: show daily distribution
+      const daysWithData = dateStrs.filter(d => (selectedTitleDaily[d] || 0) > 0);
       return {
         labels: daysWithData.map(d => {
           const date = new Date(d + 'T00:00:00');
           return format(date, 'MM/dd');
         }),
         datasets: [{
-          data: daysWithData.map(d => taskDaily[selectedTaskId]?.[d] || 0),
+          data: daysWithData.map(d => selectedTitleDaily[d] || 0),
           backgroundColor: ['#6A44E1', '#E85D75', '#25C26D', '#E89A2D', '#2D9CDB', '#9B59B6', '#1ABC9C'],
           borderWidth: 2,
           borderColor: 'var(--bg-surface)'
@@ -323,7 +347,7 @@ export const ReportsView: React.FC = () => {
       }]
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validProjectIds, selectedTaskId, dateStrs, taskDaily, projectTotals]);
+  }, [validProjectIds, selectedTaskTitle, dateStrs, selectedTitleDaily, projectTotals]);
 
   const pieChartOptions = { 
     responsive: true, 
@@ -344,53 +368,42 @@ export const ReportsView: React.FC = () => {
     } 
   };
 
-  // 3. Table Data - with date breakdown per task
+  // 3. Table Data - grouped by task title, with per-date rows
   const tableData: ProjectRowProps[] = validProjectIds.map(pId => {
     const info = getProjectInfo(pId);
     const taskEntries: TaskDateEntry[] = [];
 
-    filteredTasks
-      .filter(t => (t.projectId || 'no-project') === pId && taskTotals[t.id] > 0)
-      .sort((a,b) => taskTotals[b.id] - taskTotals[a.id])
-      .forEach(t => {
-        const dailyTimes = taskDailyTimes[t.id] || {};
-        const datesWithTime = Object.keys(dailyTimes).filter(d => dailyTimes[d] > 0).sort().reverse();
+    // Get unique title keys for this project
+    const titleKeys = Object.keys(titleGroupTotals)
+      .filter(k => k.startsWith(`${pId}::`) && titleGroupTotals[k] > 0)
+      .sort((a, b) => titleGroupTotals[b] - titleGroupTotals[a]);
 
-        if (datesWithTime.length === 0) {
-          // No daily breakdown, show as single entry
+    titleKeys.forEach(titleKey => {
+      const title = titleKey.split('::').slice(1).join('::');
+      const dailyTimes = titleGroupDaily[titleKey] || {};
+      const datesWithTime = Object.keys(dailyTimes).filter(d => dailyTimes[d] > 0).sort().reverse();
+
+      if (datesWithTime.length === 0) {
+        taskEntries.push({
+          title,
+          date: '',
+          dateDisplay: '',
+          time: titleGroupTotals[titleKey],
+          percent: getPercent(titleGroupTotals[titleKey])
+        });
+      } else {
+        // Always show per-date rows
+        datesWithTime.forEach(d => {
           taskEntries.push({
-            id: t.id,
-            title: t.title,
-            date: '',
-            dateDisplay: '',
-            time: taskTotals[t.id],
-            percent: getPercent(taskTotals[t.id])
-          });
-        } else if (datesWithTime.length === 1) {
-          // Single date
-          const d = datesWithTime[0];
-          taskEntries.push({
-            id: t.id,
-            title: t.title,
+            title,
             date: d,
             dateDisplay: d.replace(/-/g, '/'),
             time: dailyTimes[d],
             percent: getPercent(dailyTimes[d])
           });
-        } else {
-          // Multiple dates: show per-date entries
-          datesWithTime.forEach(d => {
-            taskEntries.push({
-              id: t.id,
-              title: t.title,
-              date: d,
-              dateDisplay: d.replace(/-/g, '/'),
-              time: dailyTimes[d],
-              percent: getPercent(dailyTimes[d])
-            });
-          });
-        }
-      });
+        });
+      }
+    });
 
     return {
       pId,
@@ -413,13 +426,13 @@ export const ReportsView: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, projects]);
 
-  const chartTitle = selectedTaskId
-    ? `${filteredTasks.find(t => t.id === selectedTaskId)?.title || 'Task'} の推移`
+  const chartTitle = selectedTaskTitle
+    ? `${selectedTaskTitle} の推移`
     : selectedProjectId
       ? `${getProjectInfo(selectedProjectId).name} の内訳`
       : 'Duration by day';
 
-  const doughnutTitle = selectedTaskId
+  const doughnutTitle = selectedTaskTitle
     ? '日別配分'
     : 'Project distribution';
 
@@ -475,20 +488,20 @@ export const ReportsView: React.FC = () => {
 
             <select
               className="filter-select"
-              value={selectedTaskId || ''}
-              onChange={(e) => setSelectedTaskId(e.target.value || null)}
-              disabled={availableTasksForFilter.length === 0}
+              value={selectedTaskTitle || ''}
+              onChange={(e) => setSelectedTaskTitle(e.target.value || null)}
+              disabled={availableTaskTitlesForFilter.length === 0}
             >
               <option value="">すべてのタスク</option>
-              {availableTasksForFilter.map(t => (
-                <option key={t.id} value={t.id}>{t.title}</option>
+              {availableTaskTitlesForFilter.map(title => (
+                <option key={title} value={title}>{title}</option>
               ))}
             </select>
 
             {isFiltered && (
               <button
                 className="filter-clear-btn"
-                onClick={() => { setSelectedProjectId(null); setSelectedTaskId(null); }}
+                onClick={() => { setSelectedProjectId(null); setSelectedTaskTitle(null); }}
                 title="フィルターをクリア"
               >
                 ✕ クリア
@@ -512,7 +525,7 @@ export const ReportsView: React.FC = () => {
             <span className="summary-label">Filter</span>
             <span className="summary-value" style={{ fontSize: '0.85rem' }}>
               {selectedProjectId ? getProjectInfo(selectedProjectId).name : 'All'}
-              {selectedTaskId ? ` / ${filteredTasks.find(t => t.id === selectedTaskId)?.title || ''}` : ''}
+              {selectedTaskTitle ? ` / ${selectedTaskTitle}` : ''}
             </span>
           </div>
         )}
@@ -531,7 +544,7 @@ export const ReportsView: React.FC = () => {
              <Doughnut options={pieChartOptions} data={pieChartData} />
              <div className="doughnut-center-text">
                <span className="center-time">{formatTime(totalPeriodTime)}</span>
-               <span className="center-label">{selectedTaskId ? 'TASK' : 'PROJECT'}</span>
+               <span className="center-label">{selectedTaskTitle ? 'TASK' : 'PROJECT'}</span>
              </div>
           </div>
         </div>
