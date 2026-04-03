@@ -1019,7 +1019,47 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           const currentDaily = t.dailyLogs?.[dateStr] || 0;
           const delta = Math.max(0, seconds) - currentDaily;
           const updatedDailyLogs = { ...(t.dailyLogs || {}), [dateStr]: Math.max(0, seconds) };
-          updatedTask = { ...t, accumulatedTime: Math.max(0, t.accumulatedTime + delta), dailyLogs: updatedDailyLogs };
+          const newAccumulatedTime = Math.max(0, t.accumulatedTime + delta);
+
+          // --- Sync timeBlocks with manual adjustment ---
+          let updatedTimeBlocks = [...(t.timeBlocks || [])];
+          const targetSeconds = Math.max(0, seconds);
+
+          // Calculate existing non-manual time blocks for this date
+          const existingTimerBlocksTime = updatedTimeBlocks
+            .filter(b => {
+              if (b.id.startsWith('manual-')) return false;
+              const blockDateStr = getLocalDateStr(new Date(b.startTime));
+              return blockDateStr === dateStr;
+            })
+            .reduce((sum, b) => sum + Math.floor((b.endTime - b.startTime) / 1000), 0);
+
+          // Remove existing manual blocks for this date
+          updatedTimeBlocks = updatedTimeBlocks.filter(b => {
+            if (!b.id.startsWith('manual-')) return true;
+            const blockDateStr = getLocalDateStr(new Date(b.startTime));
+            return blockDateStr !== dateStr;
+          });
+
+          // If the target time exceeds what timer blocks already cover, add a manual block
+          const manualSeconds = targetSeconds - existingTimerBlocksTime;
+          if (manualSeconds > 0) {
+            const manualDurationMs = manualSeconds * 1000;
+            const manualEndTime = now;
+            const manualStartTime = now - manualDurationMs;
+            updatedTimeBlocks.push({
+              id: `manual-${crypto.randomUUID()}`,
+              startTime: manualStartTime,
+              endTime: manualEndTime,
+            });
+          }
+
+          updatedTask = {
+            ...t,
+            accumulatedTime: newAccumulatedTime,
+            dailyLogs: updatedDailyLogs,
+            timeBlocks: updatedTimeBlocks,
+          };
           return updatedTask;
         }
         return t;
@@ -1041,7 +1081,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     if (user && updatedTask) {
       await supabase.from('tasks').update({
         accumulated_time: updatedTask.accumulatedTime,
-        daily_logs: updatedTask.dailyLogs
+        daily_logs: updatedTask.dailyLogs,
+        time_blocks: updatedTask.timeBlocks,
       }).eq('id', taskId);
     }
   },

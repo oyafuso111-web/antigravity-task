@@ -232,27 +232,28 @@ export const TimeTrackingCalendarView: React.FC = () => {
                     const height = Math.max(6, (endHourOffset - startHourOffset) * HOUR_HEIGHT);
                     const color = getBlockColor(task, projects);
                     const duration = block.endTime - block.startTime;
+                    const isManual = block.id.startsWith('manual-');
 
                     return (
                       <div
                         key={block.id}
-                        className={`tt-block ${isActive ? 'tt-block-active' : ''}`}
+                        className={`tt-block ${isActive ? 'tt-block-active' : ''} ${isManual ? 'tt-block-manual' : ''}`}
                         style={{
                           top: `${top}px`,
                           height: `${height}px`,
                           backgroundColor: color,
                           borderLeftColor: color,
                         }}
-                        title={`${task.title}\n${formatTime(block.startTime)} – ${isActive ? 'now' : formatTime(block.endTime)}\n${formatDuration(duration)}`}
+                        title={`${isManual ? '✏️ ' : ''}${task.title}\n${formatTime(block.startTime)} – ${isActive ? 'now' : formatTime(block.endTime)}\n${formatDuration(duration)}${isManual ? ' (手動入力)' : ''}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedTaskId(task.id);
                         }}
                       >
-                        {height > 14 && <span className="tt-block-title">{task.title}</span>}
+                        {height > 14 && <span className="tt-block-title">{isManual ? '✏️ ' : ''}{task.title}</span>}
                         {height > 28 && (
                           <span className="tt-block-time">
-                            {formatTime(block.startTime)} – {isActive ? 'now' : formatTime(block.endTime)}
+                            {isManual ? '手動入力' : `${formatTime(block.startTime)} – ${isActive ? 'now' : formatTime(block.endTime)}`}
                           </span>
                         )}
                         {height > 42 && (

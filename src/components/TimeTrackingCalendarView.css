@@ -345,6 +345,18 @@
   50% { opacity: 0.2; }
 }
 
+/* ── Manual Time Block ── */
+.tt-block-manual {
+  border-left: 3px dashed rgba(255,255,255,0.6) !important;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 4px,
+    rgba(255,255,255,0.08) 4px,
+    rgba(255,255,255,0.08) 8px
+  );
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .tt-header {
