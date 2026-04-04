@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import type { Task, Priority } from '../types';
+import { sortProjectsCustom } from '../utils/sortUtils';
 import {
   format,
   startOfWeek,
@@ -103,7 +104,7 @@ export const TimelineView: React.FC = () => {
       if (b === '__no_project__') return -1;
       const pA = projects.find(p => p.id === a);
       const pB = projects.find(p => p.id === b);
-      return (pA?.name || '').localeCompare(pB?.name || '');
+      return sortProjectsCustom(pA?.name || '', pB?.name || '');
     });
 
     sortedKeys.forEach(pId => {

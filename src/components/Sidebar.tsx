@@ -24,16 +24,6 @@ const DroppableNavItem: React.FC<{ id: string, label: string, isActive: boolean,
   );
 };
 
-// Simple nav item for non-droppable views (like Reports)
-const ViewNavItem: React.FC<{ label: string, isActive: boolean, onClick: () => void, icon?: string }> = ({ label, isActive, onClick, icon }) => (
-  <li 
-    className={`nav-item ${isActive ? 'active' : ''}`}
-    onClick={onClick}
-  >
-    {icon && <span className="nav-icon">{icon}</span>}
-    {label}
-  </li>
-);
 
 // Separate component for Droppable Project Item
 const DroppableProjectItem: React.FC<{ 
@@ -126,7 +116,6 @@ export const Sidebar: React.FC = () => {
     tags, 
     activeProjectId, 
     setActiveProject, 
-    activeTab,
     setActiveTab, 
     addProject, 
     updateProject,
@@ -156,10 +145,6 @@ export const Sidebar: React.FC = () => {
     setMobileSidebarOpen(false);
   };
 
-  const handleTabClick = (tabId: any) => {
-    setActiveTab(tabId);
-    setMobileSidebarOpen(false);
-  };
 
   // Sort projects: favorites first, then custom alphanumeric -> kana/kanji -> emoji
   const sortedProjects = useMemo(() => {
@@ -311,15 +296,7 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      <div className="sidebar-section">
-        <h3 className="section-title">Views</h3>
-        <ul className="nav-list">
-          <ViewNavItem label="カレンダー" icon="📅" isActive={activeTab === 'calendar'} onClick={() => handleTabClick('calendar')} />
-          <ViewNavItem label="Time Tracker" icon="⏱️" isActive={activeTab === 'calendar2'} onClick={() => handleTabClick('calendar2')} />
-          <ViewNavItem label="Timeline" icon="📈" isActive={activeTab === 'timeline'} onClick={() => handleTabClick('timeline')} />
-          <ViewNavItem label="レポート" icon="📊" isActive={activeTab === 'reports'} onClick={() => handleTabClick('reports')} />
-        </ul>
-      </div>
+
 
       <div className="sidebar-section">
         <h3 className="section-title">Projects</h3>
