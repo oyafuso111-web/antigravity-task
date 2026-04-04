@@ -466,8 +466,8 @@ export const TaskListView: React.FC = () => {
           const pB = projects.find(p => p.id === b.projectId)?.name || '';
           const projCmp = sortProjectsCustom(pA, pB);
           if (projCmp !== 0) return projCmp;
-          // Title asc as final tiebreaker
-          return a.title.localeCompare(b.title, 'ja');
+          // CreatedAt asc as final tiebreaker (newer tasks at bottom of group)
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
         });
       }
     }

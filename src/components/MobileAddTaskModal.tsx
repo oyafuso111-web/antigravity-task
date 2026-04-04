@@ -75,6 +75,15 @@ export const MobileAddTaskModal: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    let finalHomeBucket: any = null;
+    if (!dueDate) {
+      if (activeProjectId === 'p-memo') finalHomeBucket = 'memo';
+      else if (activeProjectId === 'p-waiting') finalHomeBucket = 'waiting';
+      else if (activeProjectId === 'p-wont-do') finalHomeBucket = 'wont-do';
+      else if (activeProjectId === 'p-do-later') finalHomeBucket = 'do-later';
+      else if (activeProjectId === 'p1') finalHomeBucket = 'inbox';
+    }
+
     addTask({
       title: title.trim(),
       projectId: projectId || null,
@@ -82,7 +91,7 @@ export const MobileAddTaskModal: React.FC = () => {
       priority: priority,
       tagIds: selectedTagIds,
       dueDate: dueDate || null,
-      homeBucket: dueDate ? null : 'inbox',
+      homeBucket: finalHomeBucket,
     });
 
     setMobileAddTaskOpen(false);

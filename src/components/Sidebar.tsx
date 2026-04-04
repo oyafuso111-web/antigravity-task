@@ -142,7 +142,9 @@ export const Sidebar: React.FC = () => {
     if (smartViews.includes(id)) {
       setActiveTab('list');
     }
-    setMobileSidebarOpen(false);
+    setTimeout(() => {
+      setMobileSidebarOpen(false);
+    }, 150);
   };
 
 
