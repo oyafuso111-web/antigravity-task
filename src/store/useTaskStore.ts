@@ -20,6 +20,7 @@ interface TaskStore {
   columnOrder: ColumnId[];
   columnWidths: Record<ColumnId, number>;
   highlightedTaskId: string | null;
+  timelineJumpTaskId: string | null;
   weekStartsOn: 0 | 1;
 
   sortColumn: ColumnId | null;
@@ -48,6 +49,7 @@ interface TaskStore {
   setMobileAddTaskOpen: (isOpen: boolean) => void;
   setSelectedTaskId: (id: string | null) => void;
   setHighlightedTaskId: (id: string | null) => void;
+  setTimelineJumpTaskId: (id: string | null) => void;
   setWeekStartsOn: (start: 0 | 1) => void;
   toggleTaskSelection: (id: string, multi: boolean) => void;
   clearSelection: () => void;
@@ -279,6 +281,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   isMobileSidebarOpen: false,
   isMobileAddTaskOpen: false,
   highlightedTaskId: null,
+  timelineJumpTaskId: null,
   weekStartsOn: 0,
   columnOrder: ['name', 'project', 'time', 'estimatedMinutes', 'tags', 'priority', 'date', 'createdAt'],
   columnWidths: {
@@ -376,6 +379,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setMobileAddTaskOpen: (isOpen) => set({ isMobileAddTaskOpen: isOpen }),
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setHighlightedTaskId: (id) => set({ highlightedTaskId: id }),
+  setTimelineJumpTaskId: (id) => set({ timelineJumpTaskId: id }),
   setWeekStartsOn: (start) => set({ weekStartsOn: start }),
   
   toggleTaskSelection: (id, multi) => set((state) => {

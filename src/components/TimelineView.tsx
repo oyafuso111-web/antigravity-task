@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import type { Task, Priority } from '../types';
 import { sortProjectsCustom } from '../utils/sortUtils';
@@ -53,7 +53,7 @@ const normalizeDateStr = (d: string | null): string | null => {
 };
 
 export const TimelineView: React.FC = () => {
-  const { tasks, projects, updateTask, addTask, toggleTaskCompletion, deleteTask, setSelectedTaskId } = useTaskStore();
+  const { tasks, projects, updateTask, addTask, toggleTaskCompletion, deleteTask, setSelectedTaskId, timelineJumpTaskId, setTimelineJumpTaskId } = useTaskStore();
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
@@ -62,6 +62,8 @@ export const TimelineView: React.FC = () => {
   const [dropTargetProjectId, setDropTargetProjectId] = useState<string | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [jumpHighlightTaskId, setJumpHighlightTaskId] = useState<string | null>(null);
+  const gridBodyRef = useRef<HTMLDivElement>(null);
 
   // Compute date range
   const { days, dateStrs } = useMemo(() => {
@@ -310,6 +312,59 @@ export const TimelineView: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [addTask, filterProjectId]);
 
+  // ─── Timeline Jump (from Topbar search) ───
+  useEffect(() => {
+    if (!timelineJumpTaskId) return;
+    const jumpTaskId = timelineJumpTaskId; // capture before clearing
+    const task = tasks.find(t => t.id === jumpTaskId);
+    // Clear the jump signal immediately
+    setTimelineJumpTaskId(null);
+    if (!task) return;
+
+    const taskDateStr = normalizeDateStr(task.dueDate);
+
+    // Expand the project group if it's collapsed
+    const taskProjectId = task.projectId || '__no_project__';
+    setCollapsedProjects(prev => {
+      if (prev.has(taskProjectId)) {
+        const next = new Set(prev);
+        next.delete(taskProjectId);
+        return next;
+      }
+      return prev;
+    });
+
+    // Check if the task date is in the current view range
+    const isInCurrentRange = taskDateStr && dateStrs.includes(taskDateStr);
+
+    const scrollAndHighlight = () => {
+      // Wait for render
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const el = gridBodyRef.current?.querySelector(`[data-task-id="${jumpTaskId}"]`) as HTMLElement | null;
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          setJumpHighlightTaskId(jumpTaskId);
+          // Clear highlight after 3s
+          setTimeout(() => setJumpHighlightTaskId(null), 3000);
+        }, 120);
+      });
+    };
+
+    if (isInCurrentRange || !taskDateStr) {
+      // Task is in current range or has no date - just scroll & highlight
+      scrollAndHighlight();
+    } else {
+      // Task is outside current range - switch to the period containing the task date
+      const taskDate = new Date(taskDateStr + 'T00:00:00');
+      setCurrentDate(taskDate);
+      // Need to wait for state update + re-render
+      setTimeout(scrollAndHighlight, 200);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timelineJumpTaskId]);
+
   return (
     <div className="tl-view">
       {/* ── Header ── */}
@@ -418,7 +473,7 @@ export const TimelineView: React.FC = () => {
         </div>
 
         {/* Grid body */}
-        <div className="tl-grid-body">
+        <div className="tl-grid-body" ref={gridBodyRef}>
           {projectGroups.length === 0 && unscheduledTasks.length === 0 && (
             <div className="tl-empty">
               <div className="tl-empty-icon">
@@ -488,7 +543,7 @@ export const TimelineView: React.FC = () => {
                   const isDimmed = hasSearchQuery && !isSearchMatch;
 
                   return (
-                    <div key={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''}`}>
+                    <div key={task.id} data-task-id={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''}`}>
                       <div className="tl-task-label" title={task.title}>
                         <button
                           className="tl-complete-btn"
@@ -600,7 +655,8 @@ export const TimelineView: React.FC = () => {
                   return (
                     <div
                       key={task.id}
-                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''} ${isSearchMatchU ? 'search-match' : ''} ${isDimmedU ? 'search-dimmed' : ''}`}
+                      data-task-id={task.id}
+                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''} ${isSearchMatchU ? 'search-match' : ''} ${isDimmedU ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}

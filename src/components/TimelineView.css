@@ -994,3 +994,38 @@
   background: rgba(224, 62, 62, 0.1);
   color: #E03E3E;
 }
+
+/* ── Jump Highlight Animation ── */
+@keyframes tl-jump-pulse {
+  0%, 100% {
+    background: rgba(106, 68, 225, 0.15);
+    box-shadow: inset 3px 0 0 0 var(--brand-solid), 0 0 12px rgba(106, 68, 225, 0.2);
+  }
+  50% {
+    background: rgba(106, 68, 225, 0.04);
+    box-shadow: inset 3px 0 0 0 var(--brand-solid), 0 0 0 rgba(106, 68, 225, 0);
+  }
+}
+
+.tl-task-row.jump-highlight {
+  animation: tl-jump-pulse 0.75s ease-in-out 4;
+  z-index: 5;
+  position: relative;
+}
+
+.tl-task-row.jump-highlight .tl-task-title {
+  color: var(--brand-solid);
+  font-weight: 700;
+}
+
+.tl-unscheduled-task.jump-highlight {
+  animation: tl-jump-pulse 0.75s ease-in-out 4;
+  border-color: var(--brand-solid) !important;
+  z-index: 5;
+  position: relative;
+}
+
+.tl-unscheduled-task.jump-highlight .tl-task-title {
+  color: var(--brand-solid);
+  font-weight: 700;
+}

@@ -5,7 +5,7 @@ import type { Task } from '../types';
 import './Topbar.css';
 
 export const Topbar: React.FC = () => {
-  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, user, signInWithGoogle } = useTaskStore();
+  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, user, signInWithGoogle } = useTaskStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
@@ -79,6 +79,14 @@ export const Topbar: React.FC = () => {
   };
 
   const navigateToTask = (task: Task) => {
+    // If currently viewing the timeline, jump within the timeline instead of navigating away
+    if (activeTab === 'timeline') {
+      setSearchQuery('');
+      setShowSearchDropdown(false);
+      setTimelineJumpTaskId(task.id);
+      return;
+    }
+
     const viewId = getTaskViewId(task);
     setActiveProject(viewId);
     setActiveTab('list');

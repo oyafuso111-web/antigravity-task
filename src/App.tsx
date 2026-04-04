@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { TaskListView } from './components/TaskListView';
@@ -40,7 +40,8 @@ function App() {
     clearSelection,
     selectedTaskIds,
     setUser,
-    fetchInitialData
+    fetchInitialData,
+    pauseTimer
   } = useTaskStore();
 
   useEffect(() => {
@@ -191,17 +192,24 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Global Escape key handler
+  // Global Escape key handler + double-Esc to stop timer
+  const lastEscRef = useRef<number>(0);
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        const now = Date.now();
+        // Double-Esc within 500ms stops the active timer
+        if (now - lastEscRef.current < 500 && activeTimerTaskId) {
+          pauseTimer();
+        }
+        lastEscRef.current = now;
         clearSelection();
         setSelectedTaskId(null);
       }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [clearSelection, setSelectedTaskId]);
+  }, [clearSelection, setSelectedTaskId, activeTimerTaskId, pauseTimer]);
 
   return (
     <DndContext 
