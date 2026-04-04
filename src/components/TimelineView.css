@@ -779,3 +779,42 @@
     max-width: 100%;
   }
 }
+
+/* ── Completed task styles ── */
+.tl-task-row.completed {
+  opacity: 0.55;
+}
+
+.tl-task-row.completed .tl-task-label {
+  opacity: 0.7;
+}
+
+.tl-task-title.completed {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.tl-completed-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #25C26D;
+  background: rgba(37, 194, 109, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.tl-task-chip.chip-completed {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tl-chip-text.completed {
+  text-decoration: line-through;
+}
+
+/* ── Project drop target highlight ── */
+.tl-day-cell-header.project-drop-target {
+  background: rgba(106, 68, 225, 0.08);
+}

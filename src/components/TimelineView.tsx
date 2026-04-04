@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import type { Task, Priority } from '../types';
 import { sortProjectsCustom } from '../utils/sortUtils';
@@ -35,13 +35,31 @@ const getPriorityLabel = (p: Priority) => {
   return '';
 };
 
+// Normalize dueDate to yyyy-MM-dd (handles both ISO and date-only strings)
+const normalizeDateStr = (d: string | null): string | null => {
+  if (!d) return null;
+  // Already yyyy-MM-dd
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  // ISO format or full datetime: extract the local date
+  try {
+    const date = new Date(d);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  } catch {
+    return d.slice(0, 10);
+  }
+};
+
 export const TimelineView: React.FC = () => {
-  const { tasks, projects, updateTask, setSelectedTaskId } = useTaskStore();
+  const { tasks, projects, updateTask, addTask, setSelectedTaskId } = useTaskStore();
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dropTargetDateStr, setDropTargetDateStr] = useState<string | null>(null);
+  const [dropTargetProjectId, setDropTargetProjectId] = useState<string | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
 
   // Compute date range
@@ -77,7 +95,7 @@ export const TimelineView: React.FC = () => {
     return days.some(d => isToday(d));
   }, [days]);
 
-  // Filter tasks: only with due_date, not completed, optionally by project
+  // Filter tasks: with due_date, not completed, optionally by project
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
       if (t.completed) return false;
@@ -124,7 +142,7 @@ export const TimelineView: React.FC = () => {
     return groups;
   }, [filteredTasks, projects]);
 
-  // Tasks without due date (for separate section)
+  // Tasks without due date (for separate section) — only show uncompleted
   const unscheduledTasks = useMemo(() => {
     return tasks.filter(t => {
       if (t.completed) return false;
@@ -151,8 +169,9 @@ export const TimelineView: React.FC = () => {
     const counts: Record<string, number> = {};
     dateStrs.forEach(d => { counts[d] = 0; });
     filteredTasks.forEach(t => {
-      if (t.dueDate && counts[t.dueDate] !== undefined) {
-        counts[t.dueDate]++;
+      const nd = normalizeDateStr(t.dueDate);
+      if (nd && counts[nd] !== undefined) {
+        counts[nd]++;
       }
     });
     return counts;
@@ -190,33 +209,76 @@ export const TimelineView: React.FC = () => {
     setDropTargetDateStr(null);
   }, []);
 
-  const handleDragOverCell = useCallback((e: React.DragEvent, dateStr: string) => {
+  const handleDragOverCell = useCallback((e: React.DragEvent, dateStr: string, projectId?: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDropTargetDateStr(dateStr);
+    if (projectId !== undefined) setDropTargetProjectId(projectId);
   }, []);
 
   const handleDragLeaveCell = useCallback((_e: React.DragEvent) => {
     // Don't clear immediately - let DragOver of next cell handle it
   }, []);
 
-  const handleDropOnCell = useCallback((e: React.DragEvent, dateStr: string) => {
+  const handleDropOnCell = useCallback((e: React.DragEvent, dateStr: string, projectId?: string) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('text/plain');
     if (taskId) {
-      updateTask(taskId, { dueDate: dateStr });
+      const updates: Partial<Task> = { dueDate: dateStr };
+      // If dropped on a different project row, also move the project
+      if (projectId !== undefined) {
+        const task = tasks.find(t => t.id === taskId);
+        const currentProjectId = task?.projectId || '__no_project__';
+        if (currentProjectId !== projectId) {
+          const newProjectId = projectId === '__no_project__' ? null : projectId;
+          updates.projectId = newProjectId;
+        }
+      }
+      updateTask(taskId, updates);
     }
     setDragTaskId(null);
     setDropTargetDateStr(null);
-  }, [updateTask]);
+    setDropTargetProjectId(null);
+  }, [updateTask, tasks]);
 
   // Get effective date for rendering (while dragging)
   const getEffectiveDate = useCallback((task: Task): string | null => {
     if (dragTaskId === task.id && dropTargetDateStr) {
       return dropTargetDateStr;
     }
-    return task.dueDate;
+    return normalizeDateStr(task.dueDate);
   }, [dragTaskId, dropTargetDateStr]);
+
+  // ─── Ctrl+Enter: quick add task ───
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        // Don't trigger if user is typing in an input
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        e.preventDefault();
+        const title = window.prompt('新しいタスクのタイトルを入力:');
+        if (title && title.trim()) {
+          const now = new Date();
+          const y = now.getFullYear();
+          const m = String(now.getMonth() + 1).padStart(2, '0');
+          const day = String(now.getDate()).padStart(2, '0');
+          const todayStr = `${y}-${m}-${day}`;
+          addTask({
+            title: title.trim(),
+            projectId: filterProjectId,
+            completed: false,
+            priority: 'none',
+            tagIds: [],
+            dueDate: todayStr,
+            homeBucket: null,
+          });
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [addTask, filterProjectId]);
 
   return (
     <div className="tl-view">
@@ -344,13 +406,14 @@ export const TimelineView: React.FC = () => {
                   <div className="tl-day-cells">
                     {days.map((day, i) => {
                       const isDropTarget = dropTargetDateStr === dateStrs[i] && dragTaskId !== null;
+                      const isProjectDropTarget = dropTargetProjectId === group.projectId && dragTaskId !== null;
                       return (
                         <div
                           key={dateStrs[i]}
-                          className={`tl-day-cell-header ${isToday(day) ? 'today' : ''} ${day.getDay() === 0 || day.getDay() === 6 ? 'weekend' : ''} ${isDropTarget ? 'drop-target' : ''}`}
-                          onDragOver={(e) => handleDragOverCell(e, dateStrs[i])}
+                          className={`tl-day-cell-header ${isToday(day) ? 'today' : ''} ${day.getDay() === 0 || day.getDay() === 6 ? 'weekend' : ''} ${isDropTarget ? 'drop-target' : ''} ${isProjectDropTarget ? 'project-drop-target' : ''}`}
+                          onDragOver={(e) => handleDragOverCell(e, dateStrs[i], group.projectId)}
                           onDragLeave={handleDragLeaveCell}
-                          onDrop={(e) => handleDropOnCell(e, dateStrs[i])}
+                          onDrop={(e) => handleDropOnCell(e, dateStrs[i], group.projectId)}
                         >
                           {/* Show count indicator for collapsed projects */}
                           {isCollapsed && (() => {
@@ -401,9 +464,9 @@ export const TimelineView: React.FC = () => {
                             <div
                               key={dayStr}
                               className={`tl-day-cell ${isToday(day) ? 'today' : ''} ${isWeekend ? 'weekend' : ''} ${isDropTarget ? 'drop-target' : ''}`}
-                              onDragOver={(e) => handleDragOverCell(e, dayStr)}
+                              onDragOver={(e) => handleDragOverCell(e, dayStr, group.projectId)}
                               onDragLeave={handleDragLeaveCell}
-                              onDrop={(e) => handleDropOnCell(e, dayStr)}
+                              onDrop={(e) => handleDropOnCell(e, dayStr, group.projectId)}
                             >
                               {hasTask && (
                                 <div
