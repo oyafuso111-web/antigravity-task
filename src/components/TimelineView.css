@@ -818,3 +818,179 @@
 .tl-day-cell-header.project-drop-target {
   background: rgba(106, 68, 225, 0.08);
 }
+
+/* ── Search Box ── */
+.tl-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-app);
+  min-width: 160px;
+  max-width: 220px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.tl-search-box:focus-within {
+  border-color: var(--brand-solid);
+  box-shadow: 0 0 0 3px rgba(106, 68, 225, 0.1);
+}
+
+.tl-search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.tl-search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.tl-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.tl-search-clear:hover {
+  background: var(--text-secondary);
+  color: var(--bg-surface);
+}
+
+.tl-search-count {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--brand-solid);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── Search Match Highlighting ── */
+.tl-task-row.search-match {
+  background: rgba(106, 68, 225, 0.07) !important;
+  box-shadow: inset 3px 0 0 0 var(--brand-solid);
+}
+
+.tl-task-row.search-match .tl-task-title {
+  color: var(--brand-solid);
+  font-weight: 700;
+}
+
+.tl-task-row.search-dimmed {
+  opacity: 0.3;
+}
+
+.tl-task-chip.chip-search-match {
+  box-shadow: 0 0 0 2px rgba(106, 68, 225, 0.7), 0 2px 8px rgba(106, 68, 225, 0.3) !important;
+  transform: scale(1.08);
+  z-index: 5;
+}
+
+.tl-unscheduled-task.search-match {
+  border-color: var(--brand-solid) !important;
+  background: rgba(106, 68, 225, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(106, 68, 225, 0.25), 0 2px 8px rgba(106, 68, 225, 0.15) !important;
+}
+
+.tl-unscheduled-task.search-match .tl-task-title {
+  color: var(--brand-solid);
+  font-weight: 700;
+}
+
+.tl-unscheduled-task.search-dimmed {
+  opacity: 0.3;
+}
+
+/* ── Complete Button (○) ── */
+.tl-complete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+  opacity: 0.5;
+}
+
+.tl-complete-btn:hover {
+  color: #25C26D;
+  opacity: 1;
+  background: rgba(37, 194, 109, 0.1);
+  transform: scale(1.15);
+}
+
+.tl-complete-btn:hover svg circle {
+  stroke: #25C26D;
+  stroke-width: 2.5;
+}
+
+/* ── Hover Quick Actions ── */
+.tl-hover-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  margin-left: auto;
+  padding-left: 4px;
+  position: relative;
+  z-index: 10;
+}
+
+.tl-task-label:hover .tl-hover-actions,
+.tl-unscheduled-task:hover .tl-hover-actions {
+  opacity: 1;
+}
+
+.tl-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0;
+  transition: all var(--transition-fast);
+  opacity: 0.6;
+}
+
+.tl-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.tl-action-btn.tl-action-delete:hover {
+  background: rgba(224, 62, 62, 0.1);
+  color: #E03E3E;
+}

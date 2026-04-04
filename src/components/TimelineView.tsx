@@ -53,7 +53,7 @@ const normalizeDateStr = (d: string | null): string | null => {
 };
 
 export const TimelineView: React.FC = () => {
-  const { tasks, projects, updateTask, addTask, setSelectedTaskId } = useTaskStore();
+  const { tasks, projects, updateTask, addTask, toggleTaskCompletion, deleteTask, setSelectedTaskId } = useTaskStore();
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
@@ -61,6 +61,7 @@ export const TimelineView: React.FC = () => {
   const [dropTargetDateStr, setDropTargetDateStr] = useState<string | null>(null);
   const [dropTargetProjectId, setDropTargetProjectId] = useState<string | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Compute date range
   const { days, dateStrs } = useMemo(() => {
@@ -164,6 +165,22 @@ export const TimelineView: React.FC = () => {
       .sort((a, b) => (a!.name || '').localeCompare(b!.name || ''));
   }, [tasks, projects]);
 
+  // Search: find matching task IDs (partial, case-insensitive)
+  const searchMatchIds = useMemo(() => {
+    if (!searchQuery.trim()) return new Set<string>();
+    const q = searchQuery.toLowerCase();
+    const ids = new Set<string>();
+    // Search all non-completed tasks
+    tasks.forEach(t => {
+      if (!t.completed && t.title.toLowerCase().includes(q)) {
+        ids.add(t.id);
+      }
+    });
+    return ids;
+  }, [tasks, searchQuery]);
+
+  const hasSearchQuery = searchQuery.trim().length > 0;
+
   // Count tasks in range for each day
   const taskCountByDay = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -249,6 +266,19 @@ export const TimelineView: React.FC = () => {
     return normalizeDateStr(task.dueDate);
   }, [dragTaskId, dropTargetDateStr]);
 
+  // ─── Task actions ───
+  const handleCompleteTask = useCallback((e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    toggleTaskCompletion(taskId);
+  }, [toggleTaskCompletion]);
+
+  const handleDeleteTask = useCallback((e: React.MouseEvent, taskId: string, taskTitle: string) => {
+    e.stopPropagation();
+    if (window.confirm(`「${taskTitle}」を削除しますか？`)) {
+      deleteTask(taskId);
+    }
+  }, [deleteTask]);
+
   // ─── Ctrl+Enter: quick add task ───
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -304,6 +334,25 @@ export const TimelineView: React.FC = () => {
           </button>
         </div>
         <div className="tl-controls">
+          <div className="tl-search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              className="tl-search-input"
+              placeholder="タスクを検索..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button className="tl-search-clear" onClick={() => setSearchQuery('')}>×</button>
+            )}
+            {hasSearchQuery && (
+              <span className="tl-search-count">{searchMatchIds.size}件</span>
+            )}
+          </div>
           <div className="tl-mode-toggle">
             <button
               className={`tl-mode-btn ${viewMode === 'weekly' ? 'active' : ''}`}
@@ -435,15 +484,25 @@ export const TimelineView: React.FC = () => {
                   // Check if task is in visible range
                   const isInRange = effectiveDate && dateStrs.includes(effectiveDate);
 
+                  const isSearchMatch = hasSearchQuery && searchMatchIds.has(task.id);
+                  const isDimmed = hasSearchQuery && !isSearchMatch;
+
                   return (
-                    <div key={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''}`}>
-                      <div
-                        className="tl-task-label"
-                        onClick={() => setSelectedTaskId(task.id)}
-                        title={task.title}
-                      >
-                        <span className="tl-priority-dot" style={{ backgroundColor: getPriorityColor(task.priority) }}></span>
-                        <span className="tl-task-title">{task.title}</span>
+                    <div key={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''}`}>
+                      <div className="tl-task-label" title={task.title}>
+                        <button
+                          className="tl-complete-btn"
+                          onClick={(e) => handleCompleteTask(e, task.id)}
+                          title="タスクを完了"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                          </svg>
+                        </button>
+                        <span
+                          className="tl-task-title"
+                          onClick={() => setSelectedTaskId(task.id)}
+                        >{task.title}</span>
                         {task.priority !== 'none' && (
                           <span className="tl-priority-badge" style={{ color: getPriorityColor(task.priority) }}>
                             {getPriorityLabel(task.priority)}
@@ -452,6 +511,29 @@ export const TimelineView: React.FC = () => {
                         {!isInRange && effectiveDate && (
                           <span className="tl-out-date-badge">{effectiveDate.replace(/-/g, '/')}</span>
                         )}
+                        <span className="tl-hover-actions">
+                          <button
+                            className="tl-action-btn tl-action-delete"
+                            onClick={(e) => handleDeleteTask(e, task.id, task.title)}
+                            title="タスクを削除"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                          <button
+                            className="tl-action-btn"
+                            onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); }}
+                            title="詳細を開く"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                              <polyline points="15 3 21 3 21 9" />
+                              <line x1="10" y1="14" x2="21" y2="3" />
+                            </svg>
+                          </button>
+                        </span>
                       </div>
                       <div className="tl-day-cells">
                         {days.map((day, i) => {
@@ -470,7 +552,7 @@ export const TimelineView: React.FC = () => {
                             >
                               {hasTask && (
                                 <div
-                                  className={`tl-task-chip ${isDragging ? 'chip-dragging' : ''}`}
+                                  className={`tl-task-chip ${isDragging ? 'chip-dragging' : ''} ${isSearchMatch ? 'chip-search-match' : ''}`}
                                   style={{
                                     backgroundColor: group.projectColor,
                                     borderColor: group.projectColor,
@@ -513,15 +595,25 @@ export const TimelineView: React.FC = () => {
                 {unscheduledTasks.map(task => {
                   const isDragging = dragTaskId === task.id;
                   const proj = task.projectId ? projects.find(p => p.id === task.projectId) : null;
+                  const isSearchMatchU = hasSearchQuery && searchMatchIds.has(task.id);
+                  const isDimmedU = hasSearchQuery && !isSearchMatchU;
                   return (
                     <div
                       key={task.id}
-                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''}`}
+                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''} ${isSearchMatchU ? 'search-match' : ''} ${isDimmedU ? 'search-dimmed' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}
                     >
-                      <span className="tl-priority-dot" style={{ backgroundColor: getPriorityColor(task.priority) }}></span>
+                      <button
+                        className="tl-complete-btn"
+                        onClick={(e) => handleCompleteTask(e, task.id)}
+                        title="タスクを完了"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                        </svg>
+                      </button>
                       <span
                         className="tl-task-title"
                         onClick={() => setSelectedTaskId(task.id)}
@@ -539,6 +631,29 @@ export const TimelineView: React.FC = () => {
                           {getPriorityLabel(task.priority)}
                         </span>
                       )}
+                      <span className="tl-hover-actions">
+                        <button
+                          className="tl-action-btn tl-action-delete"
+                          onClick={(e) => handleDeleteTask(e, task.id, task.title)}
+                          title="タスクを削除"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                        <button
+                          className="tl-action-btn"
+                          onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); }}
+                          title="詳細を開く"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                        </button>
+                      </span>
                       <span className="tl-drag-handle">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="9" cy="6" r="1" />
