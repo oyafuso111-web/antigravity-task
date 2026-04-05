@@ -202,20 +202,17 @@ export const ReportsView: React.FC = () => {
   });
 
   // Also build a global title-grouped daily for the selected task title filter (across projects)
-  const selectedTitleDaily = useMemo(() => {
-    if (!selectedTaskTitle) return {};
-    const daily: Record<string, number> = {};
+  const selectedTitleDaily: Record<string, number> = {};
+  if (selectedTaskTitle) {
     Object.entries(titleGroupDaily).forEach(([key, dayMap]) => {
       const title = key.split('::').slice(1).join('::');
       if (title === selectedTaskTitle) {
         Object.entries(dayMap).forEach(([dStr, time]) => {
-          daily[dStr] = (daily[dStr] || 0) + time;
+          selectedTitleDaily[dStr] = (selectedTitleDaily[dStr] || 0) + time;
         });
       }
     });
-    return daily;
-   
-  }, [selectedTaskTitle, titleGroupDaily]);
+  }
 
   const totalPeriodTime = Object.values(projectTotals).reduce((sum, val) => sum + val, 0);
 
