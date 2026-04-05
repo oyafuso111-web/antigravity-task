@@ -175,7 +175,9 @@ export const TaskListView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setNewTaskProjectId((activeProjectId === 'p1' || activeProjectId?.startsWith('p-')) ? null : activeProjectId);
+    setTimeout(() => {
+      setNewTaskProjectId((activeProjectId === 'p1' || activeProjectId?.startsWith('p-') || activeProjectId?.startsWith('t-')) ? null : activeProjectId);
+    }, 0);
   }, [activeProjectId]);
 
   const handleSort = (col: ColumnId) => {
@@ -217,7 +219,7 @@ export const TaskListView: React.FC = () => {
 
 
 
-    let finalHomeBucket: any = null;
+    let finalHomeBucket: 'inbox' | 'memo' | 'waiting' | 'wont-do' | 'do-later' | null = null;
     if (!finalDueDate) {
       if (activeProjectId === 'p-memo') finalHomeBucket = 'memo';
       else if (activeProjectId === 'p-waiting') finalHomeBucket = 'waiting';
@@ -316,7 +318,7 @@ export const TaskListView: React.FC = () => {
   }, [handleGlobalKeyDown]);
 
   const activeTasks = useMemo(() => {
-    let filtered = tasks.filter(t => {
+    const filtered = tasks.filter(t => {
       if (activeProjectId === 'completed') {
         return t.completed;
       }

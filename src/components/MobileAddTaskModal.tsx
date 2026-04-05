@@ -21,10 +21,12 @@ export const MobileAddTaskModal: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any };
+    const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
@@ -32,6 +34,7 @@ export const MobileAddTaskModal: React.FC = () => {
       recognition.lang = 'ja-JP';
       
       recognition.onstart = () => setIsListening(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setTitle((prev) => prev ? prev + transcript : transcript);
@@ -44,23 +47,25 @@ export const MobileAddTaskModal: React.FC = () => {
 
   useEffect(() => {
     if (isMobileAddTaskOpen) {
-      setTitle('');
-      // Default to today if in 'p-today' view, etc.
-      if (activeProjectId === 'p-today') {
-        setDueDate(new Date().toISOString().split('T')[0]);
-      } else {
-        setDueDate('');
-      }
-      
-      // Default project
-      if (activeProjectId && activeProjectId !== 'p1' && !activeProjectId.startsWith('p-')) {
-        setProjectId(activeProjectId);
-      } else {
-        setProjectId('');
-      }
-      
-      setPriority('none');
-      setSelectedTagIds([]);
+      setTimeout(() => {
+        setTitle('');
+        // Default to today if in 'p-today' view, etc.
+        if (activeProjectId === 'p-today') {
+          setDueDate(new Date().toISOString().split('T')[0]);
+        } else {
+          setDueDate('');
+        }
+        
+        // Default project
+        if (activeProjectId && activeProjectId !== 'p1' && !activeProjectId.startsWith('p-')) {
+          setProjectId(activeProjectId);
+        } else {
+          setProjectId('');
+        }
+        
+        setPriority('none');
+        setSelectedTagIds([]);
+      }, 0);
       
       // Auto focus after mount
       setTimeout(() => {
@@ -75,7 +80,7 @@ export const MobileAddTaskModal: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    let finalHomeBucket: any = null;
+    let finalHomeBucket: 'inbox' | 'memo' | 'waiting' | 'wont-do' | 'do-later' | null = null;
     if (!dueDate) {
       if (activeProjectId === 'p-memo') finalHomeBucket = 'memo';
       else if (activeProjectId === 'p-waiting') finalHomeBucket = 'waiting';
@@ -157,7 +162,7 @@ export const MobileAddTaskModal: React.FC = () => {
             </div>
             <div className="form-group half">
               <label>Priority</label>
-              <select value={priority} onChange={(e) => setPriority(e.target.value as any)}>
+              <select value={priority} onChange={(e) => setPriority(e.target.value as 'none'|'low'|'mid'|'high'|'1st')}>
                 <option value="none">None</option>
                 <option value="low">Low</option>
                 <option value="mid">Medium</option>

@@ -235,7 +235,7 @@ export const TimelineView: React.FC = () => {
     if (projectId !== undefined) setDropTargetProjectId(projectId);
   }, []);
 
-  const handleDragLeaveCell = useCallback((_e: React.DragEvent) => {
+  const handleDragLeaveCell = useCallback(() => {
     // Don't clear immediately - let DragOver of next cell handle it
   }, []);
 

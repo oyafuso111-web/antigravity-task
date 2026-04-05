@@ -12,8 +12,8 @@ import { MobileAddTaskModal } from './components/MobileAddTaskModal';
 import { TaskDetailView } from './components/TaskDetailView';
 import { useTaskStore } from './store/useTaskStore';
 import { supabase } from './lib/supabase';
-import { 
-  DndContext, 
+import {
+  DndContext,
   pointerWithin,
   KeyboardSensor,
   MouseSensor,
@@ -26,13 +26,13 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import './App.css';
 
 function App() {
-  const { 
-    activeTimerTaskId, 
-    tickTimer, 
-    activeTab, 
-    isSettingsOpen, 
-    setSettingsOpen, 
-    reorderTasks, 
+  const {
+    activeTimerTaskId,
+    tickTimer,
+    activeTab,
+    isSettingsOpen,
+    setSettingsOpen,
+    reorderTasks,
     moveTask,
     moveToSmartView,
     updateTask,
@@ -103,7 +103,7 @@ function App() {
       const newDateStr = over.data.current.date; // format: 'yyyy-MM-dd'
       const parsedDate = new Date(newDateStr).toISOString();
       const draggedTaskId = active.data.current?.type === 'task' ? active.data.current.task.id : String(active.id);
-      
+
       const taskIds = selectedTaskIds.length > 1 && selectedTaskIds.includes(draggedTaskId)
         ? selectedTaskIds
         : [draggedTaskId];
@@ -219,7 +219,7 @@ function App() {
   }, [clearSelection, setSelectedTaskId, activeTimerTaskId, pauseTimer]);
 
   return (
-    <DndContext 
+    <DndContext
       sensors={sensors}
       collisionDetection={pointerWithin}
       onDragEnd={handleDragEnd}
@@ -229,7 +229,7 @@ function App() {
         <main className="main-content">
           <Topbar />
           <div className="content-area">
-            <div 
+            <div
               className={`main-view-container ${selectedTaskId ? 'with-detail' : ''}`}
               onClick={() => { setSelectedTaskId(null); clearSelection(); }}
             >

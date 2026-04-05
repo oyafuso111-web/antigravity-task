@@ -749,7 +749,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
           >
             <select
               value={task.priority}
-              onChange={(e) => handleBatchUpdate({ priority: e.target.value as any })}
+              onChange={(e) => handleBatchUpdate({ priority: e.target.value as Priority })}
               onClick={(e) => e.stopPropagation()}
               style={{
                 backgroundColor: getPriorityColor(task.priority),
@@ -925,7 +925,6 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     <div 
       ref={(node) => {
         setNodeRef(node);
-        // @ts-ignore
         rowRef.current = node;
       }} 
       style={rowStyle} 

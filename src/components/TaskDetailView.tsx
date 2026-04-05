@@ -102,6 +102,7 @@ const TimeBlocksSection: React.FC<{
   deleteTimeBlock: (taskId: string, blockId: string) => void;
 }> = ({ task, taskId, addTimeBlock, updateTimeBlock, deleteTimeBlock }) => {
   const blocks = task.timeBlocks || [];
+  const [currentTodayDate] = useState(() => epochToDateStr(Date.now()));
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStartTime, setNewStartTime] = useState('');
   const [newEndTime, setNewEndTime] = useState('');
@@ -171,7 +172,7 @@ const TimeBlocksSection: React.FC<{
         const dateBlocks = grouped[dateKey].sort((a, b) => b.startTime - a.startTime);
         const dayTotal = dateBlocks.reduce((sum, b) => sum + (b.endTime - b.startTime), 0);
         const displayDate = new Date(dateKey + 'T00:00:00');
-        const isToday = epochToDateStr(Date.now()) === dateKey;
+        const isToday = currentTodayDate === dateKey;
 
         return (
           <div key={dateKey} style={{ marginBottom: '8px' }}>
@@ -817,7 +818,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
             <div className="field-value">
               <select 
                 value={task.recurrence?.frequency || 'none'} 
-                onChange={(e) => handleToggleRecurrence(e.target.value as any)}
+                onChange={(e) => handleToggleRecurrence(e.target.value as Recurrence['frequency'] | 'none')}
               >
                 <option value="none">None</option>
                 <option value="daily">Daily</option>

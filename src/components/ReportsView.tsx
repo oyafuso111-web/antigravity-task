@@ -214,7 +214,7 @@ export const ReportsView: React.FC = () => {
       }
     });
     return daily;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [selectedTaskTitle, titleGroupDaily]);
 
   const totalPeriodTime = Object.values(projectTotals).reduce((sum, val) => sum + val, 0);
@@ -303,7 +303,7 @@ export const ReportsView: React.FC = () => {
       legend: { display: isFiltered && !selectedTaskTitle },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => {
+          label: (ctx: { raw: unknown; dataset: { label?: string } }) => {
             const hoursFlo = ctx.raw as number;
             const totalMinutes = Math.round(hoursFlo * 60);
             const h = Math.floor(totalMinutes / 60);
@@ -315,7 +315,7 @@ export const ReportsView: React.FC = () => {
     },
     scales: {
       x: { stacked: !selectedTaskTitle, grid: { display: false } },
-      y: { stacked: !selectedTaskTitle, beginAtZero: true, border: { display: false }, ticks: { callback: (val: any) => val + 'h' } }
+      y: { stacked: !selectedTaskTitle, beginAtZero: true, border: { display: false }, ticks: { callback: (val: string | number) => val + 'h' } }
     }
   }), [isFiltered, selectedTaskTitle]);
 
@@ -357,7 +357,7 @@ export const ReportsView: React.FC = () => {
       legend: { position: 'right' as const, labels: { usePointStyle: true, boxWidth: 8 } },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => {
+          label: (ctx: { raw: unknown }) => {
             const val = ctx.raw as number;
             const h = Math.floor(val / 3600);
             const m = Math.floor((val % 3600) / 60);

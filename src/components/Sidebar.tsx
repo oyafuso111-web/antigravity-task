@@ -27,7 +27,7 @@ const DroppableNavItem: React.FC<{ id: string, label: string, isActive: boolean,
 
 // Separate component for Droppable Project Item
 const DroppableProjectItem: React.FC<{ 
-  project: any, 
+  project: { id: string; name: string; color: string; isFavorite?: boolean }, 
   isActive: boolean, 
   onClick: () => void, 
   onToggleFavorite: (e: React.MouseEvent) => void,
@@ -181,7 +181,7 @@ export const Sidebar: React.FC = () => {
   };
 
   // Editable tag component
-  const EditableTag: React.FC<{ tag: any }> = ({ tag }) => {
+  const EditableTag: React.FC<{ tag: { id: string; name: string; color: string } }> = ({ tag }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(tag.name);
     

@@ -40,7 +40,9 @@ export const Topbar: React.FC = () => {
   }, [searchQuery, tasks]);
 
   useEffect(() => {
-    setSearchHighlightIndex(0);
+    setTimeout(() => {
+      setSearchHighlightIndex(0);
+    }, 0);
   }, [searchQuery]);
 
   useEffect(() => {

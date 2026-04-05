@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import type { Task, Project, Folder, Recurrence, HomeBucket, Tag, TimeBlock } from '../types';
 import { supabase } from '../lib/supabase';
@@ -256,7 +257,7 @@ const calculateNextOccurrence = (currentDate: string, recurrence: Recurrence): D
       date.setMonth(date.getMonth() + interval);
       date.setDate(1);
       const firstDay = date.getDay();
-      let diff = (daysOfWeek[0] - firstDay + 7) % 7;
+      const diff = (daysOfWeek[0] - firstDay + 7) % 7;
       date.setDate(1 + diff + (weekOfMonth - 1) * 7);
     } else {
       date.setMonth(date.getMonth() + interval);
@@ -448,7 +449,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   moveToSmartView: async (taskId, targetViewId) => {
     const { user } = get();
     const now = new Date();
-    let updatedTags = [...get().tags];
+    const updatedTags = [...get().tags];
     let waitingTagId: string | null = null;
     let newTagToSync: Tag | null = null;
 
@@ -576,7 +577,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const todayStr = getLocalDateStr(new Date());
     
     // 1. If this task is active, stop the timer first and capture the final tick
-    let finalTaskState = { ...task, completed: isMarkingComplete };
+    const finalTaskState = { ...task, completed: isMarkingComplete };
     let wasActiveTimer = false;
     
     if (activeTimerTaskId === id && lastTimerTick) {

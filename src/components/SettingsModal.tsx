@@ -46,8 +46,8 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
       alert(`Backup successful: ${data.fileName}`);
       setBackupFiles(prev => [data.fileName, ...prev].sort((a, b) => b.localeCompare(a)));
       setSelectedBackup(data.fileName);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert((err as Error).message);
     } finally {
       setIsBackingUp(false);
     }
@@ -67,8 +67,8 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
       if (!res.ok) throw new Error('Restore failed');
       alert('Restore successful! Please refresh the page to see revived data.');
       window.location.reload();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert((err as Error).message);
     } finally {
       setIsRestoring(false);
     }
