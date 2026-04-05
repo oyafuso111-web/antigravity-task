@@ -64,7 +64,8 @@
   }
 
   .sidebar {
-    position: absolute; /* Handled effectively by Sidebar.css */
+    position: fixed;
+    z-index: 105;
   }
 
   .main-content {
