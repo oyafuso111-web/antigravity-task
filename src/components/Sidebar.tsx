@@ -144,7 +144,7 @@ export const Sidebar: React.FC = () => {
     }
     setTimeout(() => {
       setMobileSidebarOpen(false);
-    }, 150);
+    }, 350);
   };
 
 
