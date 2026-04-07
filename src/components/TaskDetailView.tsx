@@ -3,6 +3,10 @@ import { useTaskStore } from '../store/useTaskStore';
 import type { Priority, Task, Recurrence, TimeBlock } from '../types';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
 import { DatePickerCalendar } from './DatePickerCalendar';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import './TaskDetailView.css';
 
 interface Props {
@@ -52,7 +56,7 @@ const SubtaskItem: React.FC<{
         <span 
           className={subtask.completed ? 'completed' : ''}
           onDoubleClick={() => { setEditTitle(subtask.title); setIsEditing(true); }}
-          style={{ flex: 1, cursor: 'text' }}
+          style={{ flex: 1, cursor: 'text', textDecoration: subtask.completed ? 'line-through' : 'none', opacity: subtask.completed ? 0.6 : 1 }}
         >
           {subtask.title}
         </span>
@@ -65,6 +69,36 @@ const SubtaskItem: React.FC<{
       >
         ✕
       </button>
+    </div>
+  );
+};
+
+const SortableSubtaskWrapper: React.FC<{
+  subtask: { id: string; title: string; completed: boolean };
+  taskId: string;
+  toggleSubtask: (taskId: string, subtaskId: string) => void;
+  updateSubtask: (taskId: string, subtaskId: string, title: string) => void;
+  deleteSubtask: (taskId: string, subtaskId: string) => void;
+}> = (props) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.subtask.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px'
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <span {...attributes} {...listeners} style={{ cursor: 'grab', color: 'var(--text-secondary)', fontSize: '1.2rem', padding: '0 4px', display: 'flex', alignItems: 'center' }}>
+        ⋮⋮
+      </span>
+      <div style={{ flex: 1 }}>
+        <SubtaskItem {...props} />
+      </div>
     </div>
   );
 };
@@ -929,7 +963,37 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
         <div className="detail-section">
           <h3>Subtasks ({task.subtasks.filter(st => st.completed).length}/{task.subtasks.length})</h3>
           <div className="subtask-list">
-            {task.subtasks.map(st => (
+            <DndContext 
+              sensors={useSensors(
+                useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+                useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+              )}
+              collisionDetection={closestCenter}
+              onDragEnd={(event: DragEndEvent) => {
+                const { active, over } = event;
+                if (over && active.id !== over.id) {
+                  const oldIndex = task.subtasks.findIndex(st => st.id === active.id);
+                  const newIndex = task.subtasks.findIndex(st => st.id === over.id);
+                  const newSubtasks = arrayMove(task.subtasks, oldIndex, newIndex);
+                  updateTask(taskId, { subtasks: newSubtasks });
+                }
+              }}
+            >
+              <SortableContext items={task.subtasks.filter(st => !st.completed).map(st => st.id)} strategy={verticalListSortingStrategy}>
+                {task.subtasks.filter(st => !st.completed).map(st => (
+                  <SortableSubtaskWrapper
+                    key={st.id}
+                    subtask={st}
+                    taskId={taskId}
+                    toggleSubtask={toggleSubtask}
+                    updateSubtask={updateSubtask}
+                    deleteSubtask={deleteSubtask}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+            
+            {task.subtasks.filter(st => st.completed).map(st => (
               <SubtaskItem
                 key={st.id}
                 subtask={st}

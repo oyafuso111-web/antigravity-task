@@ -389,7 +389,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                   setIsEditingTime(true);
                 }}
                 title="Click to edit today's minutes"
-                style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-block', minWidth: '40px', padding: '2px 0' }}
+                style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-block', minWidth: '40px', padding: '2px 0' }}
               >
                  {displayLabel || <span style={{ opacity: 0.5 }}>0m (0m)</span>}
               </span>

@@ -1,0 +1,101 @@
+
+> task-manager@0.0.0 lint
+> eslint .
+
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\MobileAddTaskModal.tsx
+   24:33  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+   27:42  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+   27:79  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+   35:38  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+   47:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\MobileAddTaskModal.tsx:47:7
+  45 |   useEffect(() => {
+  46 |     if (isMobileAddTaskOpen) {
+> 47 |       setTitle('');
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |       // Default to today if in 'p-today' view, etc.
+  49 |       if (activeProjectId === 'p-today') {
+  50 |         setDueDate(new Date().toISOString().split('T')[0]);  react-hooks/set-state-in-effect
+   78:26  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  160:87  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\ReportsView.tsx
+  158:9    warning  The 'titleGroupDaily' object makes the dependencies of useMemo Hook (at line 218) change on every render. To fix this, wrap the initialization of 'titleGroupDaily' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  306:24   error    Unexpected any. Specify a different type                                                                                                                                                       @typescript-eslint/no-explicit-any
+  318:113  error    Unexpected any. Specify a different type                                                                                                                                                       @typescript-eslint/no-explicit-any
+  360:24   error    Unexpected any. Specify a different type                                                                                                                                                       @typescript-eslint/no-explicit-any
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\SettingsModal.tsx
+  49:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\Sidebar.tsx
+   30:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  184:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\TaskDetailView.tsx
+  174:40  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\TaskDetailView.tsx:174:40
+  172 |         const dayTotal = dateBlocks.reduce((sum, b) => sum + (b.endTime - b.startTime), 0);
+  173 |         const displayDate = new Date(dateKey + 'T00:00:00');
+> 174 |         const isToday = epochToDateStr(Date.now()) === dateKey;
+      |                                        ^^^^^^^^^^ Cannot call impure function
+  175 |
+  176 |         return (
+  177 |           <div key={dateKey} style={{ marginBottom: '8px' }}>  react-hooks/purity
+  820:75  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\TaskItem.tsx
+  752:80  error  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  928:9   error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\TaskListView.tsx
+  178:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\TaskListView.tsx:178:5
+  176 |
+  177 |   useEffect(() => {
+> 178 |     setNewTaskProjectId((activeProjectId === 'p1' || activeProjectId?.startsWith('p-')) ? null : activeProjectId);
+      |     ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  179 |   }, [activeProjectId]);
+  180 |
+  181 |   const handleSort = (col: ColumnId) => {  react-hooks/set-state-in-effect
+  220:26  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\Topbar.tsx
+  43:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\oyafu\OneDrive\デスクトップ\Antigravity開発フォルダ\task-manager\src\components\Topbar.tsx:43:5
+  41 |
+  42 |   useEffect(() => {
+> 43 |     setSearchHighlightIndex(0);
+     |     ^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |   }, [searchQuery]);
+  45 |
+  46 |   useEffect(() => {  react-hooks/set-state-in-effect
+
+✖ 22 problems (21 errors, 1 warning)
+

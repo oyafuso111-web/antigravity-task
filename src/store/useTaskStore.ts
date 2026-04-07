@@ -569,37 +569,27 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   toggleTaskCompletion: async (id) => {
-    const { tasks, activeTimerTaskId, user, lastTimerTick } = get();
-    const task = tasks.find(t => t.id === id);
+    const { user } = get();
+    let { tasks, activeTimerTaskId } = get();
+    let task = tasks.find(t => t.id === id);
     if (!task) return;
 
-    const isMarkingComplete = !task.completed;
-    const todayStr = getLocalDateStr(new Date());
-    
-    // 1. If this task is active, stop the timer first and capture the final tick
-    const finalTaskState = { ...task, completed: isMarkingComplete };
-    let wasActiveTimer = false;
-    
-    if (activeTimerTaskId === id && lastTimerTick) {
-      wasActiveTimer = true;
-      const now = Date.now();
-      const elapsed = Math.floor((now - lastTimerTick) / 1000);
-      if (elapsed > 0) {
-        const dailyLogs = { ...(task.dailyLogs || {}) };
-        dailyLogs[todayStr] = (dailyLogs[todayStr] || 0) + elapsed;
-        finalTaskState.accumulatedTime += elapsed;
-        finalTaskState.dailyLogs = dailyLogs;
-      }
+    if (activeTimerTaskId === id) {
+      await get().pauseTimer();
+      tasks = get().tasks;
+      task = tasks.find(t => t.id === id);
+      if (!task) return;
     }
 
-    // 2. Prepare new tasks array (immediate UI update)
+    const isMarkingComplete = !task.completed;
+    const finalTaskState = { ...task, completed: isMarkingComplete };
     const updatedTasks = tasks.map(t => t.id === id ? finalTaskState : t);
     let newTaskToSync: Task | null = null;
 
     if (isMarkingComplete && task.recurrence) {
       const nextDate = calculateNextOccurrence(task.dueDate || new Date().toISOString(), task.recurrence);
       if (nextDate) {
-        const newTask: Task = {
+        newTaskToSync = {
           ...task,
           id: crypto.randomUUID(),
           completed: false,
@@ -611,29 +601,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           subtasks: task.subtasks.map(st => ({ ...st, id: crypto.randomUUID(), completed: false })),
           order: tasks.length
         };
-        newTaskToSync = newTask;
-        set({ 
-          tasks: [...updatedTasks, newTask],
-          activeTimerTaskId: wasActiveTimer ? null : activeTimerTaskId,
-          lastTimerTick: wasActiveTimer ? null : lastTimerTick
-        });
+        set({ tasks: [...updatedTasks, newTaskToSync] });
       } else {
-        set({ 
-          tasks: updatedTasks,
-          activeTimerTaskId: wasActiveTimer ? null : activeTimerTaskId,
-          lastTimerTick: wasActiveTimer ? null : lastTimerTick
-        });
+        set({ tasks: updatedTasks });
       }
     } else {
-      set({ 
-        tasks: updatedTasks,
-        activeTimerTaskId: wasActiveTimer ? null : activeTimerTaskId,
-        lastTimerTick: wasActiveTimer ? null : lastTimerTick
-      });
+      set({ tasks: updatedTasks });
     }
 
-    // 3. Sync to Supabase
     if (user) {
+      // time_blocks, daily_logs etc. already synced by pauseTimer if active
       await supabase.from('tasks').update({ 
         completed: isMarkingComplete,
         accumulated_time: finalTaskState.accumulatedTime,
@@ -672,11 +649,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((state) => ({
       tasks: state.tasks.map((t) => {
         if (t.id === taskId) {
+          const toggled = t.subtasks.map((st) => 
+            st.id === subtaskId ? { ...st, completed: !st.completed } : st
+          );
+          const incomplete = toggled.filter(st => !st.completed);
+          const completed = toggled.filter(st => st.completed);
           return {
             ...t,
-            subtasks: t.subtasks.map((st) => 
-              st.id === subtaskId ? { ...st, completed: !st.completed } : st
-            )
+            subtasks: [...incomplete, ...completed]
           };
         }
         return t;
