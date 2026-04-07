@@ -64,6 +64,21 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   const [dateText, setDateText] = useState('');
   const dateInputRef = useRef<HTMLDivElement>(null);
 
+  const [isTagsExpanded, setIsTagsExpanded] = useState(false);
+  const [hasExcessTags, setHasExcessTags] = useState(false);
+  const tagsContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!tagsContainerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      if (tagsContainerRef.current) {
+        setHasExcessTags(tagsContainerRef.current.scrollHeight > 24);
+      }
+    });
+    observer.observe(tagsContainerRef.current);
+    return () => observer.disconnect();
+  }, [task.tagIds?.length, columnWidths.tags, isTagsExpanded]);
+
   const handleBatchUpdate = (updates: Partial<Task>) => {
     if (selectedTaskIds.length > 1 && selectedTaskIds.includes(task.id)) {
       selectedTaskIds.forEach(id => updateTask(id, updates));
@@ -425,14 +440,10 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', flex: 1, overflow: 'hidden' }}
                  onClick={(e) => {
                    e.stopPropagation();
-                   if (project) {
-                     setActiveProject(project.id);
-                   } else {
-                     setShowProjectDropdown(!showProjectDropdown);
-                     setProjectSearch('');
-                   }
+                   setShowProjectDropdown(!showProjectDropdown);
+                   setProjectSearch('');
                  }}
-                 title={project ? `${project.name} のタスク一覧を表示` : 'プロジェクトを選択'}
+                 title={project ? `${project.name} のプロジェクトを変更` : 'プロジェクトを選択'}
                >
                  {project ? (
                    <>
@@ -446,10 +457,11 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', padding: '2px 4px', flexShrink: 0, borderRadius: '3px' }}
                  onClick={(e) => {
                    e.stopPropagation();
-                   setShowProjectDropdown(!showProjectDropdown);
-                   setProjectSearch('');
+                   if (project) {
+                     setActiveProject(project.id);
+                   }
                  }}
-                 title="プロジェクトを変更"
+                 title={project ? "プロジェクト一覧へ遷移" : ""}
                >
                  ›
                </button>
@@ -593,43 +605,68 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
               }
             }}
           >
-            <div className="tag-selector-wrapper" ref={tagDropdownRef} style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-              {taskTags.map(tag => (
-                <span 
-                  key={tag.id} 
-                  className="pill tag-pill" 
-                  style={{ backgroundColor: tag.color + '33', color: tag.color, cursor: 'pointer' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveProject(`t-${tag.id}`);
-                  }}
-                  title={`${tag.name} のタスク一覧を表示`}
-                >
-                  {tag.name}
-                  <button
-                    className="tag-delete-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const newTagIds = safeTagIds.filter(id => id !== tag.id);
-                      updateTask(task.id, { tagIds: newTagIds });
-                    }}
-                    title="タグを削除"
-                  >
-                    －
-                  </button>
-                </span>
-              ))}
-              <button 
-                className="add-tag-btn"
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.875rem', padding: '0 4px' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowTagDropdown(!showTagDropdown);
-                  setTagSearch('');
+            <div className="tag-selector-wrapper" ref={tagDropdownRef} style={{ display: 'flex', width: '100%', alignItems: 'flex-start' }}>
+              <div 
+                ref={tagsContainerRef}
+                style={{ 
+                  display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', flex: 1, 
+                  maxHeight: isTagsExpanded ? 'none' : '22px', overflow: 'hidden' 
                 }}
               >
-                +
-              </button>
+                {taskTags.map(tag => (
+                  <span 
+                    key={tag.id} 
+                    className="pill tag-pill" 
+                    style={{ backgroundColor: tag.color + '33', color: tag.color, cursor: 'pointer', padding: '1px 5px', fontSize: '0.6rem', whiteSpace: 'nowrap', height: 'fit-content' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveProject(`t-${tag.id}`);
+                    }}
+                    title={`${tag.name} のタスク一覧を表示`}
+                  >
+                    {tag.name}
+                    <button
+                      className="tag-delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newTagIds = safeTagIds.filter(id => id !== tag.id);
+                        updateTask(task.id, { tagIds: newTagIds });
+                      }}
+                      title="タグを削除"
+                    >
+                      －
+                    </button>
+                  </span>
+                ))}
+                <button 
+                  className="add-tag-btn"
+                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', height: 'fit-content' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTagDropdown(!showTagDropdown);
+                    setTagSearch('');
+                  }}
+                >
+                  +
+                </button>
+              </div>
+
+              {hasExcessTags && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsTagsExpanded(!isTagsExpanded);
+                  }}
+                  style={{
+                    background: 'var(--bg-hover)', border: '1px solid var(--border-color)', borderRadius: '12px',
+                    fontSize: '0.6rem', padding: '0 4px', color: 'var(--text-secondary)', cursor: 'pointer',
+                    marginLeft: '4px', flexShrink: 0, marginTop: '2px'
+                  }}
+                  title={isTagsExpanded ? "折りたたむ" : "もっと見る"}
+                >
+                  {isTagsExpanded ? '˄' : '...'}
+                </button>
+              )}
 
               {showTagDropdown && (
                 <div className="tag-dropdown" style={{
