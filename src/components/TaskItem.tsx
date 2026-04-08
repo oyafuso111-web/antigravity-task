@@ -59,6 +59,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   const [editMinutes, setEditMinutes] = useState<string>('0');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState(task.title);
+  const [isCompleting, setIsCompleting] = useState(false);
   
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateText, setDateText] = useState('');
@@ -182,6 +183,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   if (isMultiSelected) rowClasses.push('multi-selected');
   if (task.completed) rowClasses.push('completed');
   if (highlightedTaskId === task.id) rowClasses.push('search-highlighted');
+  if (isCompleting) rowClasses.push('completing-animation');
 
   const getPriorityColor = (p: Priority) => {
     if (p === '1st') return 'var(--priority-1st)';
@@ -239,11 +241,15 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                     return;
                   }
                 }
-                toggleTaskCompletion(task.id);
+                setIsCompleting(true);
+                setTimeout(() => {
+                  toggleTaskCompletion(task.id);
+                  setIsCompleting(false);
+                }, 500);
               }}
               title="Mark Complete"
             >
-              <div className="check-circle" />
+              <div className={`check-circle ${isCompleting ? 'checked' : ''}`} />
             </button>
             {isEditingTitle ? (
               <input

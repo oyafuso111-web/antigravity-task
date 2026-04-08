@@ -165,8 +165,8 @@
 }
 
 .tl-project-col-header {
-  width: 240px;
-  min-width: 240px;
+  width: var(--sidebar-width, 240px);
+  min-width: var(--sidebar-width, 240px);
   padding: 10px 14px;
   font-size: 0.68rem;
   font-weight: 600;
@@ -312,8 +312,8 @@
 }
 
 .tl-project-label {
-  width: 240px;
-  min-width: 240px;
+  width: var(--sidebar-width, 240px);
+  min-width: var(--sidebar-width, 240px);
   padding: 8px 14px;
   display: flex;
   align-items: center;
@@ -442,8 +442,8 @@
 }
 
 .tl-task-label {
-  width: 240px;
-  min-width: 240px;
+  width: var(--sidebar-width, 240px);
+  min-width: var(--sidebar-width, 240px);
   padding: 8px 12px 8px 24px;
   display: flex;
   align-items: center;

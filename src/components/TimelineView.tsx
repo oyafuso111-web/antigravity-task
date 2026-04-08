@@ -65,6 +65,32 @@ export const TimelineView: React.FC = () => {
   const [jumpHighlightTaskId, setJumpHighlightTaskId] = useState<string | null>(null);
   const gridBodyRef = useRef<HTMLDivElement>(null);
 
+  const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
+  const [sidebarWidth, setSidebarWidth] = useState(240);
+
+  const handleSidebarResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      setSidebarWidth(Math.max(150, Math.min(800, startWidth + delta)));
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [sidebarWidth]);
+
   // Compute date range
   const { days, dateStrs } = useMemo(() => {
     let start: Date, end: Date;
@@ -271,7 +297,15 @@ export const TimelineView: React.FC = () => {
   // ─── Task actions ───
   const handleCompleteTask = useCallback((e: React.MouseEvent, taskId: string) => {
     e.stopPropagation();
-    toggleTaskCompletion(taskId);
+    setCompletingTaskIds(prev => new Set(prev).add(taskId));
+    setTimeout(() => {
+      toggleTaskCompletion(taskId);
+      setCompletingTaskIds(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }, 500);
   }, [toggleTaskCompletion]);
 
   const handleDeleteTask = useCallback((e: React.MouseEvent, taskId: string, taskTitle: string) => {
@@ -366,7 +400,7 @@ export const TimelineView: React.FC = () => {
   }, [timelineJumpTaskId]);
 
   return (
-    <div className="tl-view">
+    <div className="tl-view" style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
       {/* ── Header ── */}
       <div className="tl-header">
         <div className="tl-nav">
@@ -436,7 +470,24 @@ export const TimelineView: React.FC = () => {
       </div>
 
       {/* ── Grid ── */}
-      <div className="tl-grid-wrapper">
+      <div className="tl-grid-wrapper" style={{ position: 'relative' }}>
+        {/* Resize handle */}
+        <div
+          className="tl-sidebar-resizer"
+          onMouseDown={handleSidebarResizeStart}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: sidebarWidth,
+            width: '8px',
+            marginLeft: '-4px',
+            cursor: 'col-resize',
+            zIndex: 50,
+            backgroundColor: 'transparent'
+          }}
+          title="ドラッグして列幅を調整"
+        />
         {/* Day headers */}
         <div className="tl-grid-header">
           <div className="tl-project-col-header">
@@ -541,9 +592,10 @@ export const TimelineView: React.FC = () => {
 
                   const isSearchMatch = hasSearchQuery && searchMatchIds.has(task.id);
                   const isDimmed = hasSearchQuery && !isSearchMatch;
+                  const isCompleting = completingTaskIds.has(task.id);
 
                   return (
-                    <div key={task.id} data-task-id={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''}`}>
+                    <div key={task.id} data-task-id={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompleting ? 'completing-animation' : ''}`}>
                       <div className="tl-task-label" title={task.title}>
                         <button
                           className="tl-complete-btn"
@@ -652,11 +704,12 @@ export const TimelineView: React.FC = () => {
                   const proj = task.projectId ? projects.find(p => p.id === task.projectId) : null;
                   const isSearchMatchU = hasSearchQuery && searchMatchIds.has(task.id);
                   const isDimmedU = hasSearchQuery && !isSearchMatchU;
+                  const isCompletingU = completingTaskIds.has(task.id);
                   return (
                     <div
                       key={task.id}
                       data-task-id={task.id}
-                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''} ${isSearchMatchU ? 'search-match' : ''} ${isDimmedU ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''}`}
+                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''} ${isSearchMatchU ? 'search-match' : ''} ${isDimmedU ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompletingU ? 'completing-animation' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}
