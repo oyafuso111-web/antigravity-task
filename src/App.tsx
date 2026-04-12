@@ -9,6 +9,7 @@ import { ReportsView } from './components/ReportsView';
 import { SettingsModal } from './components/SettingsModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileAddTaskModal } from './components/MobileAddTaskModal';
+import { FloatingTimer } from './components/FloatingTimer';
 import { TaskDetailView } from './components/TaskDetailView';
 import { useTaskStore } from './store/useTaskStore';
 import { supabase } from './lib/supabase';
@@ -246,6 +247,7 @@ function App() {
         {isSettingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
         <MobileAddTaskModal />
         <MobileBottomNav />
+        <FloatingTimer />
       </div>
     </DndContext>
   );
