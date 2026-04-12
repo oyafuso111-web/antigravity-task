@@ -16,6 +16,7 @@ const formatTime = (totalSeconds: number): string => {
 
 const playNotificationBeep = (win: Window) => {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const AudioCtx = win.AudioContext || (win as any).webkitAudioContext;
     const ctx = new AudioCtx();
     const osc = ctx.createOscillator();
@@ -74,7 +75,6 @@ export function FloatingTimer() {
   const {
     activeTimerTaskId,
     timerStartTimestamp,
-    timerAccumulatedAtStart,
     timerTick,
     tasks,
     pauseTimer,
