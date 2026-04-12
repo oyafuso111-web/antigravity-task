@@ -28,21 +28,21 @@ interface TaskStore {
   sortDirection: 'asc' | 'desc' | null;
   secondarySortColumn: ColumnId | null;
   secondarySortDirection: 'asc' | 'desc' | null;
-  
+
   activeTimerTaskId: string | null;
   timerStartTimestamp: number | null;
   timerAccumulatedAtStart: number | null;
   timerTick: number;
   lastTimerTick: number | null;
-  
+
   user: any | null;
-  
+
   // Actions
   loadTimerState: () => void;
   setUser: (user: any | null) => void;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  
+
   setActiveProject: (id: string | null) => void;
   setActiveTab: (tab: AppTab) => void;
   setSettingsOpen: (isOpen: boolean) => void;
@@ -57,7 +57,7 @@ interface TaskStore {
   reorderColumns: (activeId: string, overId: string) => void;
   setColumnWidth: (colId: ColumnId, width: number) => void;
   setSortConfig: (sc: ColumnId | null, sd: 'asc' | 'desc' | null, ssc: ColumnId | null, ssd: 'asc' | 'desc' | null) => void;
-  
+
   fetchInitialData: () => Promise<void>;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'accumulatedTime' | 'subtasks' | 'comments' | 'order' | 'description' | 'recurrence'> & { homeBucket?: HomeBucket | null }) => void;
   moveToSmartView: (taskId: string, targetViewId: string) => void;
@@ -79,7 +79,7 @@ interface TaskStore {
   deleteProject: (id: string) => void;
   toggleProjectFavorite: (projectId: string) => void;
   addFolder: (name: string) => void;
-  
+
   addTag: (name: string, color: string, id?: string) => void;
   updateTag: (id: string, updates: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
@@ -304,9 +304,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   timerAccumulatedAtStart: null,
   timerTick: Date.now(),
   lastTimerTick: null,
-  
+
   setUser: (user) => set({ user }),
-  
+
   signInWithGoogle: async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -334,7 +334,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     if (!tasksRes.error) {
       const dbTasks = (tasksRes.data || []).map(mapDBToTask);
       const { activeTimerTaskId, tasks: currentTasks } = get();
-      
+
       const mergedTasks = dbTasks.map(dt => {
         // If this task is currently being timed locally, preserve the local time/logs
         if (dt.id === activeTimerTaskId) {
@@ -382,7 +382,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setHighlightedTaskId: (id) => set({ highlightedTaskId: id }),
   setTimelineJumpTaskId: (id) => set({ timelineJumpTaskId: id }),
   setWeekStartsOn: (start) => set({ weekStartsOn: start }),
-  
+
   toggleTaskSelection: (id, multi) => set((state) => {
     if (!multi) return { selectedTaskIds: [id] };
     const isSelected = state.selectedTaskIds.includes(id);
@@ -392,7 +392,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       return { selectedTaskIds: [...state.selectedTaskIds, id] };
     }
   }),
-  
+
   clearSelection: () => set({ selectedTaskIds: [] }),
 
   reorderColumns: (activeId, overId) => set((state) => {
@@ -457,9 +457,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const tagName = '⏯️連絡待ち';
       let waitingTag = updatedTags.find(tag => tag.name === tagName);
       if (!waitingTag) {
-        waitingTag = { 
-          id: crypto.randomUUID(), 
-          name: tagName, 
+        waitingTag = {
+          id: crypto.randomUUID(),
+          name: tagName,
           color: '#6A44E1',
           createdAt: now.toISOString()
         };
@@ -504,8 +504,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         }
         if (targetViewId === 'p-waiting') {
           const currentTagIds = t.tagIds || [];
-          const newTagIds = waitingTagId && !currentTagIds.includes(waitingTagId) 
-            ? [...currentTagIds, waitingTagId] 
+          const newTagIds = waitingTagId && !currentTagIds.includes(waitingTagId)
+            ? [...currentTagIds, waitingTagId]
             : currentTagIds;
           const dropDateStr = getLocalDateStr(now);
           const dropComment = {
@@ -611,12 +611,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     if (user) {
       // time_blocks, daily_logs etc. already synced by pauseTimer if active
-      await supabase.from('tasks').update({ 
+      await supabase.from('tasks').update({
         completed: isMarkingComplete,
         accumulated_time: finalTaskState.accumulatedTime,
         daily_logs: finalTaskState.dailyLogs
       }).eq('id', id);
-      
+
       if (newTaskToSync) {
         await supabase.from('tasks').insert({ ...mapTaskToDB(newTaskToSync), user_id: user.id });
       }
@@ -649,7 +649,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((state) => ({
       tasks: state.tasks.map((t) => {
         if (t.id === taskId) {
-          const toggled = t.subtasks.map((st) => 
+          const toggled = t.subtasks.map((st) =>
             st.id === subtaskId ? { ...st, completed: !st.completed } : st
           );
           const incomplete = toggled.filter(st => !st.completed);
@@ -782,11 +782,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   addProject: async (name, color, explicitId, folderId = null) => {
     const { user } = get();
-    const newProject: Project = { 
-      id: explicitId || crypto.randomUUID(), 
-      name, 
-      color, 
-      folderId, 
+    const newProject: Project = {
+      id: explicitId || crypto.randomUUID(),
+      name,
+      color,
+      folderId,
       isFavorite: false,
       createdAt: new Date().toISOString()
     };
@@ -844,9 +844,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   addTag: async (name, color, id) => {
     const { user } = get();
-    const newTag: Tag = { 
-      id: id || crypto.randomUUID(), 
-      name, 
+    const newTag: Tag = {
+      id: id || crypto.randomUUID(),
+      name,
       color,
       createdAt: new Date().toISOString()
     };
@@ -906,12 +906,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   reorderTasks: (activeId, overId) => set((state) => {
     const oldIndex = state.tasks.findIndex(t => t.id === activeId);
     const newIndex = state.tasks.findIndex(t => t.id === overId);
-    
+
     if (oldIndex !== -1 && newIndex !== -1) {
       const newTasks = [...state.tasks];
       const [movedTask] = newTasks.splice(oldIndex, 1);
       newTasks.splice(newIndex, 0, movedTask);
-      
+
       // Update order property
       newTasks.forEach((t, i) => { t.order = i; });
       return { tasks: newTasks };
@@ -927,18 +927,18 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const startTime = Date.now();
     const accAtStart = task.accumulatedTime;
 
-    set(() => ({ 
-      activeTimerTaskId: taskId, 
+    set(() => ({
+      activeTimerTaskId: taskId,
       timerStartTimestamp: startTime,
       timerAccumulatedAtStart: accAtStart,
-      lastTimerTick: startTime 
+      lastTimerTick: startTime
     }));
 
     sessionStorage.setItem('activeTimerTaskId', taskId);
     sessionStorage.setItem('timerStartTimestamp', startTime.toString());
     sessionStorage.setItem('timerAccumulatedAtStart', accAtStart.toString());
   },
-  
+
   pauseTimer: async () => {
     const { activeTimerTaskId, tasks, user, timerStartTimestamp } = get();
     if (activeTimerTaskId) {
@@ -948,7 +948,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const now = Date.now();
         const elapsed = Math.floor((now - timerStartTimestamp) / 1000);
         const todayStr = getLocalDateStr(new Date());
-        
+
         const finalDailyLogs = { ...(task.dailyLogs || {}) };
         finalDailyLogs[todayStr] = (finalDailyLogs[todayStr] || 0) + elapsed;
         const finalAcc = task.accumulatedTime + elapsed;
@@ -963,42 +963,42 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
         // Update local state
         set((state) => ({
-          tasks: state.tasks.map(t => t.id === activeTimerTaskId 
-            ? { ...t, accumulatedTime: finalAcc, dailyLogs: finalDailyLogs, timeBlocks: updatedTimeBlocks } 
+          tasks: state.tasks.map(t => t.id === activeTimerTaskId
+            ? { ...t, accumulatedTime: finalAcc, dailyLogs: finalDailyLogs, timeBlocks: updatedTimeBlocks }
             : t
           )
         }));
 
         if (user) {
-          await supabase.from('tasks').update({ 
-            accumulated_time: Math.max(0, finalAcc), 
+          await supabase.from('tasks').update({
+            accumulated_time: Math.max(0, finalAcc),
             daily_logs: finalDailyLogs,
             time_blocks: updatedTimeBlocks
           }).eq('id', activeTimerTaskId);
         }
       }
     }
-    set(() => ({ 
-      activeTimerTaskId: null, 
-      timerStartTimestamp: null, 
+    set(() => ({
+      activeTimerTaskId: null,
+      timerStartTimestamp: null,
       timerAccumulatedAtStart: null,
-      lastTimerTick: null 
+      lastTimerTick: null
     }));
     sessionStorage.removeItem('activeTimerTaskId');
     sessionStorage.removeItem('timerStartTimestamp');
     sessionStorage.removeItem('timerAccumulatedAtStart');
   },
-  
+
   tickTimer: () => set({ timerTick: Date.now() }),
 
   setDailyLog: async (taskId, dateStr, seconds) => {
     const { user } = get();
     let updatedTask: Task | undefined;
-    
+
     set((state) => {
       const isCurrentlyTimed = state.activeTimerTaskId === taskId;
       const now = Date.now();
-      
+
       const newTasks = state.tasks.map(t => {
         if (t.id === taskId) {
           const currentDaily = t.dailyLogs?.[dateStr] || 0;
@@ -1053,13 +1053,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       if (isCurrentlyTimed && updatedTask) {
         sessionStorage.setItem('timerStartTimestamp', now.toString());
         sessionStorage.setItem('timerAccumulatedAtStart', updatedTask.accumulatedTime.toString());
-        return { 
+        return {
           tasks: newTasks,
           timerStartTimestamp: now,
           timerAccumulatedAtStart: updatedTask.accumulatedTime
         };
       }
-      
+
       return { tasks: newTasks };
     });
 

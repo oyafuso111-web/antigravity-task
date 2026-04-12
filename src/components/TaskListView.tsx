@@ -538,7 +538,7 @@ export const TaskListView: React.FC = () => {
 
         {/* Add Task Input (now inside scrollable list) */}
         {activeProjectId !== 'completed' && (
-          <div className={`task-row add-task-row ${newTaskTitle || newTaskDateText || newTaskTagsText || newTaskProjectId || newTaskPriority !== 'none' ? 'has-input' : ''}`}>
+          <div className={`task-row add-task-row ${newTaskTitle || newTaskDateText || newTaskTagsText || newTaskProjectId || newTaskPriority !== 'none' || showNewTaskProjectDropdown || showNewTaskTagDropdown ? 'has-input' : ''}`}>
             {columnOrder.map(colId => {
               switch (colId) {
                 case 'name':

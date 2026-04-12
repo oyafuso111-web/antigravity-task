@@ -22,9 +22,29 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { DragEndEvent } from '@dnd-kit/core';
+import type { DragEndEvent, KeyboardSensorOptions } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import './App.css';
+
+// Custom keyboard sensor that ignores events originating from form inputs
+// to prevent IME space-key conversion from triggering drag-and-drop
+class SafeKeyboardSensor extends KeyboardSensor {
+  static activators = KeyboardSensor.activators.map((activator) => ({
+    ...activator,
+    eventName: activator.eventName as 'onKeyDown',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: (event: React.KeyboardEvent, options: KeyboardSensorOptions, context: any) => {
+      const target = event.target as HTMLElement;
+      const tagName = target.tagName.toUpperCase();
+      // Don't activate drag when user is typing in form elements
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+        return false;
+      }
+      return activator.handler(event, options, context);
+    },
+  }));
+}
+
 
 function App() {
   const {
@@ -90,7 +110,7 @@ function App() {
         tolerance: 5,
       },
     }),
-    useSensor(KeyboardSensor, {
+    useSensor(SafeKeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
