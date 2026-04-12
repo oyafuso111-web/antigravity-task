@@ -17,7 +17,8 @@ const formatTime = (totalSeconds: number): string => {
 const playNotificationBeep = (win: Window) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const AudioCtx = win.AudioContext || (win as any).webkitAudioContext;
+    const w = win as any;
+    const AudioCtx = w.AudioContext || w.webkitAudioContext;
     const ctx = new AudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
