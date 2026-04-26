@@ -92,12 +92,16 @@ export function FloatingTimer() {
   // Generation counter: bump to trigger window re-creation
   const [windowGen, setWindowGen] = useState(0);
 
-  // Reset countdown on task change
-  useEffect(() => {
-    setCountdownTarget(null);
-    setCountdownPreset(null);
+  const prevTaskIdRef = useRef(activeTimerTaskId);
+
+  // Reset state during render when task changes
+  if (prevTaskIdRef.current !== activeTimerTaskId) {
+    prevTaskIdRef.current = activeTimerTaskId;
+    if (minimised) setMinimised(false);
+    if (countdownTarget !== null) setCountdownTarget(null);
+    if (countdownPreset !== null) setCountdownPreset(null);
     hasNotifiedRef.current = false;
-  }, [activeTimerTaskId]);
+  }
 
   // ── Derived values ──
   const task = tasks.find((t) => t.id === activeTimerTaskId);

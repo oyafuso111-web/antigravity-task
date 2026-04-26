@@ -818,6 +818,12 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
         );
       case 'date': {
         const displayDate = formatDateDisplay(task.dueDate);
+        
+        let isOverdue = false;
+        if (task.dueDate && !task.completed && task.dueDate.slice(0, 10) < todayStr) {
+          isOverdue = true;
+        }
+
         return (
           <div key="date" className="task-cell cell-date" ref={dateInputRef} tabIndex={0}
             style={{ width: `${columnWidths.date}px`, minWidth: `${columnWidths.date}px`, maxWidth: `${columnWidths.date}px`, flexShrink: 0, flexGrow: 0, position: 'relative' }}
@@ -833,7 +839,9 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
               className="date-display-btn"
               onClick={(e) => { e.stopPropagation(); setShowDateInput(!showDateInput); setDateText(''); }}
               style={{ 
-                cursor: 'pointer', fontSize: '0.85rem', color: task.dueDate ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer', fontSize: '0.85rem', 
+                color: isOverdue ? 'var(--priority-1st)' : (task.dueDate ? 'var(--text-primary)' : 'var(--text-secondary)'),
+                fontWeight: isOverdue ? 600 : 'normal',
                 padding: '2px 6px', borderRadius: '4px', display: 'inline-block',
                 border: '1px solid transparent'
               }}
