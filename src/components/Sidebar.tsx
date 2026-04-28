@@ -5,6 +5,8 @@ import { useDroppable } from '@dnd-kit/core';
 import { sortProjectsCustom } from '../utils/sortUtils';
 import './Sidebar.css';
 
+const WEEKDAY_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
+
 // Droppable sidebar item for smart views and home buckets
 const DroppableNavItem: React.FC<{ id: string, label: string, isActive: boolean, onClick: () => void, icon?: string }> = ({ id, label, isActive, onClick, icon }) => {
   const { isOver, setNodeRef } = useDroppable({
@@ -171,7 +173,6 @@ export const Sidebar: React.FC = () => {
   const hasMoreTags = sortedTags.length > MAX_VISIBLE_TAGS;
 
   // Smart View labels with dynamic date + weekday
-  const WEEKDAY_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
   const smartViewLabels = useMemo(() => {
     const today = new Date();
     const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()} ${WEEKDAY_SHORT[d.getDay()]}`;

@@ -589,7 +589,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   toggleTaskCompletion: async (id) => {
     const { user } = get();
-    let { tasks, activeTimerTaskId } = get();
+    let { tasks } = get();
+    const { activeTimerTaskId } = get();
     let task = tasks.find(t => t.id === id);
     if (!task) return;
 

@@ -366,7 +366,6 @@ export const TaskListView: React.FC = () => {
         return taskDate !== null && isTomorrow(taskDate);
       }
       if (activeProjectId === 'p-dayafter') {
-        const dayAfter = addDays(today, 2);
         return taskDate !== null && taskDate >= addDays(today, 2) && taskDate < addDays(today, 3);
       }
       if (activeProjectId === 'p-dayafter2') {
