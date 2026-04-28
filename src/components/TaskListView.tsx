@@ -210,6 +210,10 @@ export const TaskListView: React.FC = () => {
         finalDueDate = getLocalDateStr(now);
       } else if (activeProjectId === 'p-tomorrow') {
         finalDueDate = getLocalDateStr(addDays(now, 1));
+      } else if (activeProjectId === 'p-dayafter') {
+        finalDueDate = getLocalDateStr(addDays(now, 2));
+      } else if (activeProjectId === 'p-dayafter2') {
+        finalDueDate = getLocalDateStr(addDays(now, 3));
       } else if (activeProjectId === 'p-thisweek') {
         finalDueDate = getLocalDateStr(now);
       } else if (activeProjectId === 'p-nextweek') {
@@ -360,6 +364,13 @@ export const TaskListView: React.FC = () => {
       }
       if (activeProjectId === 'p-tomorrow') {
         return taskDate !== null && isTomorrow(taskDate);
+      }
+      if (activeProjectId === 'p-dayafter') {
+        const dayAfter = addDays(today, 2);
+        return taskDate !== null && taskDate >= addDays(today, 2) && taskDate < addDays(today, 3);
+      }
+      if (activeProjectId === 'p-dayafter2') {
+        return taskDate !== null && taskDate >= addDays(today, 3) && taskDate < addDays(today, 4);
       }
       if (activeProjectId === 'p-thisweek') {
         return taskDate !== null && taskDate >= today && taskDate < sevenDaysLater;

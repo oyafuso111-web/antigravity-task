@@ -19,6 +19,8 @@ export const Topbar: React.FC = () => {
     if (activeProjectId === 'p-waiting') return '連絡待ち';
     if (activeProjectId === 'p-today') return '本日';
     if (activeProjectId === 'p-tomorrow') return '明日';
+    if (activeProjectId === 'p-dayafter') return '明後日';
+    if (activeProjectId === 'p-dayafter2') return '明々後日';
     if (activeProjectId === 'p-thisweek') return '今週';
     if (activeProjectId === 'p-nextweek') return '来週以降';
     if (activeProjectId === 'completed') return '完了したタスク';
@@ -67,6 +69,10 @@ export const Topbar: React.FC = () => {
       const sevenDaysLater = addDays(today, 7);
       if (isToday(taskDate) || isBefore(taskDate, today)) return 'p-today';
       if (isTomorrow(taskDate)) return 'p-tomorrow';
+      const dayAfterTomorrow = addDays(today, 2);
+      const twoDaysAfterTomorrow = addDays(today, 3);
+      if (taskDate >= dayAfterTomorrow && taskDate < twoDaysAfterTomorrow) return 'p-dayafter';
+      if (taskDate >= twoDaysAfterTomorrow && taskDate < addDays(today, 4)) return 'p-dayafter2';
       if (taskDate >= today && taskDate < sevenDaysLater) return 'p-thisweek';
       return 'p-nextweek';
     }
@@ -140,6 +146,10 @@ export const Topbar: React.FC = () => {
         dueDate = getLocalDateStr(now);
       } else if (activeProjectId === 'p-tomorrow') {
         dueDate = getLocalDateStr(addDays(now, 1));
+      } else if (activeProjectId === 'p-dayafter') {
+        dueDate = getLocalDateStr(addDays(now, 2));
+      } else if (activeProjectId === 'p-dayafter2') {
+        dueDate = getLocalDateStr(addDays(now, 3));
       } else if (activeProjectId === 'p-thisweek') {
         dueDate = getLocalDateStr(now);
       } else if (activeProjectId === 'p-nextweek') {

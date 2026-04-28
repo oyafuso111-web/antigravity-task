@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { addDays } from 'date-fns';
 import { useTaskStore } from '../store/useTaskStore';
 import { useDroppable } from '@dnd-kit/core';
 import { sortProjectsCustom } from '../utils/sortUtils';
@@ -138,7 +139,7 @@ export const Sidebar: React.FC = () => {
 
   const handleNavClick = (id: string) => {
     setActiveProject(id);
-    const smartViews = ['p-today', 'p-tomorrow', 'p-thisweek', 'p-nextweek', 'p-waiting', 'p-wont-do', 'p-do-later', 'p-memo', 'completed', 'p1'];
+    const smartViews = ['p-today', 'p-tomorrow', 'p-dayafter', 'p-dayafter2', 'p-thisweek', 'p-nextweek', 'p-waiting', 'p-wont-do', 'p-do-later', 'p-memo', 'completed', 'p1'];
     if (smartViews.includes(id)) {
       setActiveTab('list');
     }
@@ -168,6 +169,22 @@ export const Sidebar: React.FC = () => {
 
   const visibleTags = tagsExpanded ? sortedTags : sortedTags.slice(0, MAX_VISIBLE_TAGS);
   const hasMoreTags = sortedTags.length > MAX_VISIBLE_TAGS;
+
+  // Smart View labels with dynamic date + weekday
+  const WEEKDAY_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
+  const smartViewLabels = useMemo(() => {
+    const today = new Date();
+    const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()} ${WEEKDAY_SHORT[d.getDay()]}`;
+    const tomorrow = addDays(today, 1);
+    const dayAfter = addDays(today, 2);
+    const dayAfter2 = addDays(today, 3);
+    return {
+      today: `本日（${fmt(today)}）`,
+      tomorrow: `明日（${fmt(tomorrow)}）`,
+      dayAfter: `明後日（${fmt(dayAfter)}）`,
+      dayAfter2: `明々後日（${fmt(dayAfter2)}）`,
+    };
+  }, []);
 
   const handleAddProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,10 +300,12 @@ export const Sidebar: React.FC = () => {
       <div className="sidebar-section">
         <h3 className="section-title">Smart Views</h3>
         <ul className="nav-list">
-          <DroppableNavItem id="p-today" label="本日" icon="📌" isActive={activeProjectId === 'p-today'} onClick={() => handleNavClick('p-today')} />
-          <DroppableNavItem id="p-tomorrow" label="明日" icon="📅" isActive={activeProjectId === 'p-tomorrow'} onClick={() => handleNavClick('p-tomorrow')} />
+          <DroppableNavItem id="p-today" label={smartViewLabels.today} icon="📌" isActive={activeProjectId === 'p-today'} onClick={() => handleNavClick('p-today')} />
+          <DroppableNavItem id="p-tomorrow" label={smartViewLabels.tomorrow} icon="📅" isActive={activeProjectId === 'p-tomorrow'} onClick={() => handleNavClick('p-tomorrow')} />
           {smartViewExpanded && (
             <>
+              <DroppableNavItem id="p-dayafter" label={smartViewLabels.dayAfter} icon="📅" isActive={activeProjectId === 'p-dayafter'} onClick={() => handleNavClick('p-dayafter')} />
+              <DroppableNavItem id="p-dayafter2" label={smartViewLabels.dayAfter2} icon="📅" isActive={activeProjectId === 'p-dayafter2'} onClick={() => handleNavClick('p-dayafter2')} />
               <DroppableNavItem id="p-thisweek" label="今週" icon="🗓️" isActive={activeProjectId === 'p-thisweek'} onClick={() => handleNavClick('p-thisweek')} />
               <DroppableNavItem id="p-nextweek" label="来週以降" icon="📆" isActive={activeProjectId === 'p-nextweek'} onClick={() => handleNavClick('p-nextweek')} />
             </>

@@ -492,6 +492,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           tomorrow.setDate(now.getDate() + 1);
           return { ...t, dueDate: getLocalDateStr(tomorrow), homeBucket: null };
         }
+        if (targetViewId === 'p-dayafter') {
+          const dayAfter = new Date(now);
+          dayAfter.setDate(now.getDate() + 2);
+          return { ...t, dueDate: getLocalDateStr(dayAfter), homeBucket: null };
+        }
+        if (targetViewId === 'p-dayafter2') {
+          const dayAfter2 = new Date(now);
+          dayAfter2.setDate(now.getDate() + 3);
+          return { ...t, dueDate: getLocalDateStr(dayAfter2), homeBucket: null };
+        }
         if (targetViewId === 'p-thisweek') {
           return { ...t, dueDate: getLocalDateStr(now), homeBucket: null };
         }
