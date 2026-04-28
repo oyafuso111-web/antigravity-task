@@ -854,8 +854,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
               <div className="date-picker-dropdown" style={{
                 position: 'absolute', top: '100%', left: 0, zIndex: 20,
                 backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
-                borderRadius: '8px', padding: '12px', marginTop: '4px', minWidth: '260px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.18)'
+                borderRadius: '8px', padding: '12px', marginTop: '4px', width: '260px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.18)', boxSizing: 'border-box'
               }} onClick={e => e.stopPropagation()}>
                 {/* Text input for natural language */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>

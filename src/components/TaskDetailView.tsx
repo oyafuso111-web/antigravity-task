@@ -780,8 +780,8 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                 <div className="date-picker-dropdown" style={{
                   position: 'absolute', top: '100%', left: 0, zIndex: 20,
                   backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
-                  borderRadius: '8px', padding: '12px', marginTop: '4px', minWidth: '260px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.18)'
+                  borderRadius: '8px', padding: '12px', marginTop: '4px', width: '260px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.18)', boxSizing: 'border-box'
                 }}>
                   {/* Text input for natural language */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
@@ -893,8 +893,8 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                           type="radio" 
                           id="monthly-day"
                           name="monthly-type" 
-                          checked={!!task.recurrence.dayOfMonth} 
-                          onChange={() => setSpecificRecurrence({ dayOfMonth: 1, weekOfMonth: undefined, daysOfWeek: undefined })}
+                          checked={!!task.recurrence.dayOfMonth && !task.recurrence.useLastDay} 
+                          onChange={() => setSpecificRecurrence({ dayOfMonth: 1, weekOfMonth: undefined, daysOfWeek: undefined, useLastDay: undefined })}
                         />
                         <label htmlFor="monthly-day">On day</label>
                         <input 
@@ -902,7 +902,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                           min="1" max="31" 
                           value={task.recurrence.dayOfMonth || 1} 
                           onChange={(e) => setSpecificRecurrence({ dayOfMonth: parseInt(e.target.value) || 1 })}
-                          disabled={!task.recurrence.dayOfMonth}
+                          disabled={!task.recurrence.dayOfMonth || !!task.recurrence.useLastDay}
                         />
                       </div>
                       <div className="monthly-option">
@@ -910,14 +910,14 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                           type="radio" 
                           id="monthly-week"
                           name="monthly-type" 
-                          checked={!!task.recurrence.weekOfMonth} 
-                          onChange={() => setSpecificRecurrence({ dayOfMonth: undefined, weekOfMonth: 1, daysOfWeek: [1] })}
+                          checked={!!task.recurrence.weekOfMonth && !task.recurrence.useLastDay} 
+                          onChange={() => setSpecificRecurrence({ dayOfMonth: undefined, weekOfMonth: 1, daysOfWeek: [1], useLastDay: undefined })}
                         />
                         <label htmlFor="monthly-week">On the</label>
                         <select 
                           value={task.recurrence.weekOfMonth || 1} 
                           onChange={(e) => setSpecificRecurrence({ weekOfMonth: parseInt(e.target.value) })}
-                          disabled={!task.recurrence.weekOfMonth}
+                          disabled={!task.recurrence.weekOfMonth || !!task.recurrence.useLastDay}
                         >
                           <option value="1">1st</option>
                           <option value="2">2nd</option>
@@ -928,7 +928,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                         <select 
                           value={task.recurrence.daysOfWeek?.[0] || 1} 
                           onChange={(e) => setSpecificRecurrence({ daysOfWeek: [parseInt(e.target.value)] })}
-                          disabled={!task.recurrence.weekOfMonth}
+                          disabled={!task.recurrence.weekOfMonth || !!task.recurrence.useLastDay}
                         >
                           <option value="0">Sunday</option>
                           <option value="1">Monday</option>
@@ -938,6 +938,16 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                           <option value="5">Friday</option>
                           <option value="6">Saturday</option>
                         </select>
+                      </div>
+                      <div className="monthly-option">
+                        <input 
+                          type="radio" 
+                          id="monthly-lastday"
+                          name="monthly-type" 
+                          checked={!!task.recurrence.useLastDay} 
+                          onChange={() => setSpecificRecurrence({ dayOfMonth: undefined, weekOfMonth: undefined, daysOfWeek: undefined, useLastDay: true })}
+                        />
+                        <label htmlFor="monthly-lastday">月末（最終日）</label>
                       </div>
                     </div>
                   )}

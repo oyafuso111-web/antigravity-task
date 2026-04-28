@@ -76,15 +76,15 @@ export const DatePickerCalendar: React.FC<Props> = ({ value, onChange, onClear }
   };
 
   return (
-    <div className="datepicker-calendar" style={{ userSelect: 'none' }}>
+    <div className="datepicker-calendar" style={{ userSelect: 'none', width: '100%', boxSizing: 'border-box' }}>
       {/* Month navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', width: '100%' }}>
         <button
           onClick={goToPrevMonth}
           style={navBtnStyle}
           title="前月"
         >‹</button>
-        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', flexShrink: 0 }}>
           {displayYear}年 {displayMonth + 1}月
         </span>
         <button
@@ -95,7 +95,7 @@ export const DatePickerCalendar: React.FC<Props> = ({ value, onChange, onClear }
       </div>
 
       {/* Weekday headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', marginBottom: '2px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '2px', width: '100%' }}>
         {WEEKDAY_LABELS.map((label, i) => (
           <div key={label} style={{
             textAlign: 'center', fontSize: '0.7rem', fontWeight: 600, padding: '4px 0',
@@ -107,7 +107,7 @@ export const DatePickerCalendar: React.FC<Props> = ({ value, onChange, onClear }
       </div>
 
       {/* Day grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', width: '100%' }}>
         {visibleCells.map((cell, idx) => {
           const cellDateStr = `${cell.year}-${String(cell.month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`;
           const isToday = cellDateStr === todayStr;
@@ -115,41 +115,42 @@ export const DatePickerCalendar: React.FC<Props> = ({ value, onChange, onClear }
           const dayOfWeek = idx % 7;
 
           return (
-            <button
-              key={idx}
-              onClick={() => handleDateClick(cell)}
-              style={{
-                width: '32px', height: '32px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: isToday ? '2px solid var(--brand-solid)' : 'none',
-                borderRadius: '50%',
-                background: isSelected ? 'var(--brand-solid)' : 'transparent',
-                color: isSelected 
-                  ? 'white' 
-                  : !cell.isCurrentMonth 
-                    ? 'var(--text-secondary)' 
-                    : dayOfWeek === 0 
-                      ? 'var(--priority-high)' 
-                      : dayOfWeek === 6 
-                        ? '#2D9CDB' 
-                        : 'var(--text-primary)',
-                opacity: cell.isCurrentMonth ? 1 : 0.4,
-                fontSize: '0.8rem',
-                fontWeight: isToday || isSelected ? 700 : 400,
-                cursor: 'pointer',
-                padding: 0,
-                margin: '1px auto',
-                transition: 'background 0.15s, color 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                if (!isSelected) e.currentTarget.style.background = 'var(--bg-hover)';
-              }}
-              onMouseLeave={(e) => {
-                if (!isSelected) e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              {cell.day}
-            </button>
+            <div key={idx} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1px 0' }}>
+              <button
+                onClick={() => handleDateClick(cell)}
+                style={{
+                  width: '30px', height: '30px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: isToday ? '2px solid var(--brand-solid)' : 'none',
+                  borderRadius: '50%',
+                  background: isSelected ? 'var(--brand-solid)' : 'transparent',
+                  color: isSelected 
+                    ? 'white' 
+                    : !cell.isCurrentMonth 
+                      ? 'var(--text-secondary)' 
+                      : dayOfWeek === 0 
+                        ? 'var(--priority-high)' 
+                        : dayOfWeek === 6 
+                          ? '#2D9CDB' 
+                          : 'var(--text-primary)',
+                  opacity: cell.isCurrentMonth ? 1 : 0.4,
+                  fontSize: '0.78rem',
+                  fontWeight: isToday || isSelected ? 700 : 400,
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'background 0.15s, color 0.15s',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = 'var(--bg-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                {cell.day}
+              </button>
+            </div>
           );
         })}
       </div>
@@ -187,4 +188,5 @@ const navBtnStyle: React.CSSProperties = {
   padding: '4px 8px',
   borderRadius: '4px',
   lineHeight: 1,
+  flexShrink: 0,
 };

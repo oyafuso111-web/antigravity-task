@@ -228,7 +228,7 @@ const initialTasks: Task[] = [
 
 const calculateNextOccurrence = (currentDate: string, recurrence: Recurrence): Date | null => {
   const date = new Date(currentDate);
-  const { frequency, interval, daysOfWeek, dayOfMonth, weekOfMonth } = recurrence;
+  const { frequency, interval, daysOfWeek, dayOfMonth, weekOfMonth, useLastDay } = recurrence;
 
   if (frequency === 'daily') {
     if (daysOfWeek && daysOfWeek.length > 0) {
@@ -250,9 +250,18 @@ const calculateNextOccurrence = (currentDate: string, recurrence: Recurrence): D
   } else if (frequency === 'weekly') {
     date.setDate(date.getDate() + (7 * interval));
   } else if (frequency === 'monthly') {
-    if (dayOfMonth) {
+    if (useLastDay) {
+      // Last day of month: go to target month + interval, then set to last day
+      const targetMonth = date.getMonth() + interval;
+      const targetYear = date.getFullYear();
+      // Day 0 of next month = last day of target month
+      const lastDay = new Date(targetYear, targetMonth + 1, 0);
+      date.setTime(lastDay.getTime());
+    } else if (dayOfMonth) {
       date.setMonth(date.getMonth() + interval);
-      date.setDate(dayOfMonth);
+      // Clamp to last day of month if dayOfMonth exceeds days in the month
+      const maxDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+      date.setDate(Math.min(dayOfMonth, maxDay));
     } else if (weekOfMonth && daysOfWeek && daysOfWeek.length > 0) {
       date.setMonth(date.getMonth() + interval);
       date.setDate(1);

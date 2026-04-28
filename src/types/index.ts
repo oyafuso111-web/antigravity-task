@@ -26,6 +26,7 @@ export interface Recurrence {
   daysOfWeek?: number[]; // 0-6
   dayOfMonth?: number; // 1-31
   weekOfMonth?: number; // 1-4, -1 for last
+  useLastDay?: boolean; // true = repeat on the last day of each month
 }
 
 export type HomeBucket = 'inbox' | 'wont-do' | 'do-later' | 'waiting' | 'memo';
