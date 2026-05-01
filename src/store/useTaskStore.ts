@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
-import type { Task, Project, Folder, Recurrence, HomeBucket, Tag, TimeBlock } from '../types';
+import type { Task, Project, Folder, Recurrence, HomeBucket, Tag, TimeBlock, ProjectComment } from '../types';
 import { supabase } from '../lib/supabase';
 
 export type AppTab = 'list' | 'calendar' | 'calendar2' | 'timeline' | 'reports';
@@ -23,6 +23,8 @@ interface TaskStore {
   highlightedTaskId: string | null;
   timelineJumpTaskId: string | null;
   weekStartsOn: 0 | 1;
+  showCompleted: boolean;
+  isProjectDetailOpen: boolean;
 
   sortColumn: ColumnId | null;
   sortDirection: 'asc' | 'desc' | null;
@@ -52,6 +54,11 @@ interface TaskStore {
   setHighlightedTaskId: (id: string | null) => void;
   setTimelineJumpTaskId: (id: string | null) => void;
   setWeekStartsOn: (start: 0 | 1) => void;
+  toggleShowCompleted: () => void;
+  setProjectDetailOpen: (isOpen: boolean) => void;
+  addProjectComment: (projectId: string, text: string) => void;
+  updateProjectComment: (projectId: string, commentId: string, text: string) => void;
+  deleteProjectComment: (projectId: string, commentId: string) => void;
   toggleTaskSelection: (id: string, multi: boolean) => void;
   clearSelection: () => void;
   reorderColumns: (activeId: string, overId: string) => void;
@@ -153,6 +160,8 @@ const mapProjectToDB = (p: Partial<Project>) => ({
   folder_id: p.folderId,
   is_favorite: p.isFavorite,
   created_at: p.createdAt,
+  description: p.description,
+  comments: p.comments,
 });
 
 const mapDBToProject = (row: any): Project => ({
@@ -162,6 +171,8 @@ const mapDBToProject = (row: any): Project => ({
   folderId: row.folder_id,
   isFavorite: row.is_favorite,
   createdAt: row.created_at,
+  description: row.description || '',
+  comments: row.comments || [],
 });
 
 const mapTagToDB = (tag: Partial<Tag>) => ({
@@ -293,6 +304,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   highlightedTaskId: null,
   timelineJumpTaskId: null,
   weekStartsOn: 0,
+  showCompleted: false,
+  isProjectDetailOpen: false,
   columnOrder: ['name', 'project', 'time', 'estimatedMinutes', 'tags', 'priority', 'date', 'createdAt'],
   columnWidths: {
     name: 400,
@@ -391,6 +404,59 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setHighlightedTaskId: (id) => set({ highlightedTaskId: id }),
   setTimelineJumpTaskId: (id) => set({ timelineJumpTaskId: id }),
   setWeekStartsOn: (start) => set({ weekStartsOn: start }),
+  toggleShowCompleted: () => set((state) => ({ showCompleted: !state.showCompleted })),
+  setProjectDetailOpen: (isOpen) => set({ isProjectDetailOpen: isOpen }),
+
+  addProjectComment: async (projectId, text) => {
+    const { user } = get();
+    const newComment: ProjectComment = {
+      id: crypto.randomUUID(),
+      userName: 'You',
+      text,
+      createdAt: new Date().toISOString()
+    };
+    set((state) => ({
+      projects: state.projects.map(p =>
+        p.id === projectId ? { ...p, comments: [...(p.comments || []), newComment] } : p
+      )
+    }));
+    if (user) {
+      const project = get().projects.find(p => p.id === projectId);
+      if (project) {
+        await supabase.from('projects').update({ comments: project.comments }).eq('id', projectId);
+      }
+    }
+  },
+
+  updateProjectComment: async (projectId, commentId, text) => {
+    const { user } = get();
+    set((state) => ({
+      projects: state.projects.map(p =>
+        p.id === projectId ? { ...p, comments: (p.comments || []).map(c => c.id === commentId ? { ...c, text } : c) } : p
+      )
+    }));
+    if (user) {
+      const project = get().projects.find(p => p.id === projectId);
+      if (project) {
+        await supabase.from('projects').update({ comments: project.comments }).eq('id', projectId);
+      }
+    }
+  },
+
+  deleteProjectComment: async (projectId, commentId) => {
+    const { user } = get();
+    set((state) => ({
+      projects: state.projects.map(p =>
+        p.id === projectId ? { ...p, comments: (p.comments || []).filter(c => c.id !== commentId) } : p
+      )
+    }));
+    if (user) {
+      const project = get().projects.find(p => p.id === projectId);
+      if (project) {
+        await supabase.from('projects').update({ comments: project.comments }).eq('id', projectId);
+      }
+    }
+  },
 
   toggleTaskSelection: (id, multi) => set((state) => {
     if (!multi) return { selectedTaskIds: [id] };

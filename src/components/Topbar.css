@@ -76,6 +76,50 @@
   cursor: pointer;
 }
 
+/* ─── Toggle Completed Button ─── */
+.toggle-completed-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.toggle-completed-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.toggle-completed-btn.active {
+  background: linear-gradient(135deg, rgba(37, 194, 109, 0.12), rgba(37, 194, 109, 0.06));
+  border-color: #25C26D;
+  color: #25C26D;
+}
+
+.toggle-completed-btn.active:hover {
+  background: linear-gradient(135deg, rgba(37, 194, 109, 0.2), rgba(37, 194, 109, 0.1));
+}
+
+.toggle-completed-icon {
+  font-size: 0.875rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.toggle-completed-label {
+  font-size: 0.8125rem;
+}
+
 /* ─── Search Bar ─── */
 .search-wrapper {
   position: relative;
@@ -264,5 +308,13 @@
   /* Hide the "+ Add Task" button on topbar since it's in the bottom nav now */
   .brand-btn {
     display: none;
+  }
+
+  .toggle-completed-label {
+    display: none;
+  }
+
+  .toggle-completed-btn {
+    padding: 6px 8px;
   }
 }

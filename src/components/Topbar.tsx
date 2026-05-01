@@ -5,7 +5,7 @@ import type { Task } from '../types';
 import './Topbar.css';
 
 export const Topbar: React.FC = () => {
-  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, user, signInWithGoogle } = useTaskStore();
+  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, user, signInWithGoogle, showCompleted, toggleShowCompleted, isProjectDetailOpen, setProjectDetailOpen } = useTaskStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
@@ -182,6 +182,31 @@ export const Topbar: React.FC = () => {
       </div>
 
       <div className="topbar-right">
+        {/* Project Detail Button (only for real projects) */}
+        {activeProjectId && !activeProjectId.startsWith('p-') && activeProjectId !== 'p1' && activeProjectId !== 'completed' && !activeProjectId.startsWith('t-') && projects.some(p => p.id === activeProjectId) && (
+          <button
+            id="project-detail-btn"
+            className={`toggle-completed-btn ${isProjectDetailOpen ? 'active' : ''}`}
+            onClick={() => setProjectDetailOpen(!isProjectDetailOpen)}
+            title={isProjectDetailOpen ? 'プロジェクト詳細を閉じる' : 'プロジェクト詳細を開く'}
+            style={isProjectDetailOpen ? { borderColor: 'var(--brand-solid)', color: 'var(--brand-solid)', background: 'linear-gradient(135deg, rgba(106,68,225,0.12), rgba(106,68,225,0.06))' } : {}}
+          >
+            <span className="toggle-completed-icon">📋</span>
+            <span className="toggle-completed-label">{isProjectDetailOpen ? '詳細を閉じる' : 'プロジェクト詳細'}</span>
+          </button>
+        )}
+
+        {/* Toggle Completed Tasks */}
+        <button
+          id="toggle-completed-btn"
+          className={`toggle-completed-btn ${showCompleted ? 'active' : ''}`}
+          onClick={toggleShowCompleted}
+          title={showCompleted ? '完了タスクを非表示' : '完了タスクを表示'}
+        >
+          <span className="toggle-completed-icon">✓</span>
+          <span className="toggle-completed-label">{showCompleted ? '完了を非表示' : '完了を表示'}</span>
+        </button>
+
         {/* Search Bar */}
         <div className="search-wrapper" ref={searchRef}>
           <div className={`search-input-container ${showSearchDropdown && (searchResults.length > 0 || searchQuery.trim()) ? 'open' : ''}`}>

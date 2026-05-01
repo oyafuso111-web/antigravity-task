@@ -96,3 +96,27 @@
 .add-task-form input::placeholder {
   color: var(--text-secondary);
 }
+
+/* ─── Completed Tasks Separator ─── */
+.completed-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 8px;
+  user-select: none;
+}
+
+.completed-separator-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.completed-separator-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}

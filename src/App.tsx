@@ -11,6 +11,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileAddTaskModal } from './components/MobileAddTaskModal';
 import { FloatingTimer } from './components/FloatingTimer';
 import { TaskDetailView } from './components/TaskDetailView';
+import { ProjectDetailView } from './components/ProjectDetailView';
 import { useTaskStore } from './store/useTaskStore';
 import { supabase } from './lib/supabase';
 import {
@@ -65,6 +66,8 @@ function App() {
     fetchInitialData,
     pauseTimer
   } = useTaskStore();
+
+  const { isProjectDetailOpen, setProjectDetailOpen, activeProjectId, projects } = useTaskStore();
 
   useEffect(() => {
     // Initial session check
@@ -261,6 +264,9 @@ function App() {
               {activeTab === 'reports' && <ReportsView />}
             </div>
             {selectedTaskId && <TaskDetailView key={selectedTaskId} taskId={selectedTaskId} />}
+            {!selectedTaskId && isProjectDetailOpen && activeProjectId && !activeProjectId.startsWith('p-') && activeProjectId !== 'p1' && activeProjectId !== 'completed' && !activeProjectId.startsWith('t-') && projects.some(p => p.id === activeProjectId) && (
+              <ProjectDetailView key={activeProjectId} projectId={activeProjectId} />
+            )}
           </div>
         </main>
 

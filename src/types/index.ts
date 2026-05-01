@@ -58,6 +58,13 @@ export interface Task {
   homeBucket: HomeBucket | null;
 }
 
+export interface ProjectComment {
+  id: string;
+  userName: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Project {
   id: string;
   folderId: string | null; // null if top-level
@@ -65,6 +72,8 @@ export interface Project {
   color: string;
   isFavorite: boolean;
   createdAt: string;
+  description?: string;
+  comments?: ProjectComment[];
 }
 
 export interface Folder {

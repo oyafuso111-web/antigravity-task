@@ -140,7 +140,8 @@ export const TaskListView: React.FC = () => {
   const {
     tasks, projects, tags, addProject, addTag, addTask, activeProjectId,
     columnOrder, columnWidths, setColumnWidth,
-    sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, setSortConfig
+    sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, setSortConfig,
+    showCompleted
   } = useTaskStore();
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -486,6 +487,71 @@ export const TaskListView: React.FC = () => {
 
     return filtered;
   }, [tasks, activeProjectId, sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, projects]);
+
+  const completedTasks = useMemo(() => {
+    if (!showCompleted || activeProjectId === 'completed') return [];
+
+    const getSafeDate = (dateInput: string) => {
+      if (dateInput.length === 10) {
+        const [y, m, d] = dateInput.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      }
+      return parseISO(dateInput);
+    };
+
+    return tasks.filter(t => {
+      if (!t.completed) return false;
+
+      const taskDate = t.dueDate ? getSafeDate(t.dueDate) : null;
+      const today = startOfDay(new Date());
+      const sevenDaysLater = addDays(today, 7);
+
+      // Home Buckets
+      if (activeProjectId === 'p1') {
+        return !t.dueDate && (t.homeBucket === 'inbox' || !t.homeBucket);
+      }
+      if (activeProjectId === 'p-wont-do') {
+        return !t.dueDate && t.homeBucket === 'wont-do';
+      }
+      if (activeProjectId === 'p-do-later') {
+        return !t.dueDate && t.homeBucket === 'do-later';
+      }
+      if (activeProjectId === 'p-waiting') {
+        return !t.dueDate && t.homeBucket === 'waiting';
+      }
+      if (activeProjectId === 'p-memo') {
+        return !t.dueDate && t.homeBucket === 'memo';
+      }
+
+      // Smart Views
+      if (activeProjectId === 'p-today') {
+        return taskDate !== null && (isToday(taskDate) || isBefore(taskDate, today));
+      }
+      if (activeProjectId === 'p-tomorrow') {
+        return taskDate !== null && isTomorrow(taskDate);
+      }
+      if (activeProjectId === 'p-dayafter') {
+        return taskDate !== null && taskDate >= addDays(today, 2) && taskDate < addDays(today, 3);
+      }
+      if (activeProjectId === 'p-dayafter2') {
+        return taskDate !== null && taskDate >= addDays(today, 3) && taskDate < addDays(today, 4);
+      }
+      if (activeProjectId === 'p-thisweek') {
+        return taskDate !== null && taskDate >= today && taskDate < sevenDaysLater;
+      }
+      if (activeProjectId === 'p-nextweek') {
+        return taskDate !== null && taskDate >= sevenDaysLater;
+      }
+
+      if (activeProjectId && activeProjectId.startsWith('t-')) {
+        const tagId = activeProjectId.slice(2);
+        const safeTagIds = t.tagIds || [];
+        return safeTagIds.includes(tagId);
+      } else {
+        return t.projectId === activeProjectId;
+      }
+    });
+  }, [tasks, showCompleted, activeProjectId]);
 
   const totalEstimatedMinutes = useMemo(() => {
     return activeTasks.reduce((sum: number, task: Task) => sum + (task.estimatedMinutes || 0), 0);
@@ -920,6 +986,20 @@ export const TaskListView: React.FC = () => {
               }
             })}
           </div>
+        )}
+
+        {/* Completed Tasks Section */}
+        {showCompleted && completedTasks.length > 0 && activeProjectId !== 'completed' && (
+          <>
+            <div className="completed-separator">
+              <span className="completed-separator-line" />
+              <span className="completed-separator-label">完了済み（{completedTasks.length}）</span>
+              <span className="completed-separator-line" />
+            </div>
+            {completedTasks.map((task) => (
+              <TaskItem key={task.id} task={task} />
+            ))}
+          </>
         )}
       </div>
     </div>
