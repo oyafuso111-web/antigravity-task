@@ -67,7 +67,7 @@ function App() {
     pauseTimer
   } = useTaskStore();
 
-  const { isProjectDetailOpen, setProjectDetailOpen, activeProjectId, projects } = useTaskStore();
+  const { isProjectDetailOpen, activeProjectId, projects } = useTaskStore();
 
   useEffect(() => {
     // Initial session check
