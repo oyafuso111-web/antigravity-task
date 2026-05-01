@@ -523,9 +523,9 @@ export const TaskListView: React.FC = () => {
         return !t.dueDate && t.homeBucket === 'memo';
       }
 
-      // Smart Views
+      // Smart Views — only show completed tasks whose dueDate matches the specific day
       if (activeProjectId === 'p-today') {
-        return taskDate !== null && (isToday(taskDate) || isBefore(taskDate, today));
+        return taskDate !== null && isToday(taskDate);
       }
       if (activeProjectId === 'p-tomorrow') {
         return taskDate !== null && isTomorrow(taskDate);
