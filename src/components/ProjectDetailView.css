@@ -176,11 +176,12 @@
   border: 1px solid var(--border-color);
   background: var(--bg-app);
   color: var(--text-primary);
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   font-family: inherit;
   font-size: 0.875rem;
   line-height: 1.6;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, height 0.15s ease;
   box-sizing: border-box;
 }
 

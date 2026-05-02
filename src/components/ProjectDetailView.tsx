@@ -26,6 +26,16 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
   // Local state for description with debounced save
   const [localDescription, setLocalDescription] = useState(project?.description || '');
   const descriptionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Auto-resize textarea to fit content
+  const autoResizeTextarea = useCallback(() => {
+    const el = descriptionTextareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = Math.max(140, el.scrollHeight) + 'px';
+    }
+  }, []);
 
   // Sync local description when project changes externally (e.g. fetchInitialData)
   // but only if the user hasn't made local edits that are pending save
@@ -35,6 +45,11 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
       setLocalDescription(project.description || '');
     }
   }, [project?.description]);
+
+  // Auto-resize when localDescription changes (including external sync)
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [localDescription, autoResizeTextarea]);
 
   // Keep a ref to the latest description for use in cleanup/visibility handlers
   const latestDescriptionRef = useRef(localDescription);
@@ -140,6 +155,7 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
     const value = e.target.value;
     setLocalDescription(value);
     debouncedSaveDescription(value);
+    autoResizeTextarea();
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -200,6 +216,7 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
         <div className="project-section">
           <h3>🎯 目的 / 目標</h3>
           <textarea
+            ref={descriptionTextareaRef}
             className="project-description-area"
             value={localDescription}
             onChange={handleDescriptionChange}

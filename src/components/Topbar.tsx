@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { addDays, isToday, isTomorrow, isBefore, startOfDay, parseISO } from 'date-fns';
-import type { Task } from '../types';
+import type { Task, Project } from '../types';
 import './Topbar.css';
+
+type SearchResult =
+  | { kind: 'task'; task: Task }
+  | { kind: 'project'; project: Project };
 
 export const Topbar: React.FC = () => {
   const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, user, signInWithGoogle, showCompleted, toggleShowCompleted, isProjectDetailOpen, setProjectDetailOpen } = useTaskStore();
@@ -33,13 +37,19 @@ export const Topbar: React.FC = () => {
     return project ? project.name : 'My Tasks';
   };
 
-  const searchResults = useMemo(() => {
+  const searchResults = useMemo((): SearchResult[] => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    return tasks
+    const matchedProjects: SearchResult[] = projects
+      .filter(p => p.id !== 'p1' && p.name.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map(p => ({ kind: 'project', project: p }));
+    const matchedTasks: SearchResult[] = tasks
       .filter(t => t.title.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [searchQuery, tasks]);
+      .slice(0, 8)
+      .map(t => ({ kind: 'task', task: t }));
+    return [...matchedProjects, ...matchedTasks];
+  }, [searchQuery, tasks, projects]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -109,6 +119,21 @@ export const Topbar: React.FC = () => {
     }, 80);
   };
 
+  const navigateToProject = (project: Project) => {
+    setActiveProject(project.id);
+    setActiveTab('list');
+    setSearchQuery('');
+    setShowSearchDropdown(false);
+  };
+
+  const handleSearchResultSelect = (result: SearchResult) => {
+    if (result.kind === 'task') {
+      navigateToTask(result.task);
+    } else {
+      navigateToProject(result.project);
+    }
+  };
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       setShowSearchDropdown(false);
@@ -125,7 +150,7 @@ export const Topbar: React.FC = () => {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (searchResults[searchHighlightIndex]) {
-        navigateToTask(searchResults[searchHighlightIndex]);
+        handleSearchResultSelect(searchResults[searchHighlightIndex]);
       }
     }
   };
@@ -171,7 +196,7 @@ export const Topbar: React.FC = () => {
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <h1 className="page-title">{getPageTitle()}</h1>
+        <h1 key={activeProjectId} className="page-title title-enter">{getPageTitle()}</h1>
         <div className="tabs">
           <button className={`tab ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>List</button>
           <button className={`tab ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}>Calendar</button>
@@ -215,7 +240,7 @@ export const Topbar: React.FC = () => {
               ref={searchInputRef}
               type="text"
               className="search-input"
-              placeholder="タスクを検索..."
+              placeholder="タスク・プロジェクトを検索..."
               value={searchQuery}
               onChange={e => {
                 setSearchQuery(e.target.value);
@@ -242,36 +267,71 @@ export const Topbar: React.FC = () => {
 
           {showSearchDropdown && searchResults.length > 0 && (
             <div className="search-dropdown">
-              {searchResults.map((task, idx) => {
-                const taskProject = projects.find(p => p.id === task.projectId);
-                return (
-                  <div
-                    key={task.id}
-                    className={`search-result-item ${idx === searchHighlightIndex ? 'highlighted' : ''}`}
-                    onClick={() => navigateToTask(task)}
-                    onMouseEnter={() => setSearchHighlightIndex(idx)}
-                  >
-                    <span
-                      className="search-result-title"
-                      style={{ textDecoration: task.completed ? 'line-through' : 'none', opacity: task.completed ? 0.6 : 1 }}
+              {/* Project results section */}
+              {searchResults.some(r => r.kind === 'project') && (
+                <div className="search-section-label">プロジェクト</div>
+              )}
+              {searchResults.map((result, idx) => {
+                if (result.kind === 'project') {
+                  const p = result.project;
+                  return (
+                    <div
+                      key={`proj-${p.id}`}
+                      className={`search-result-item ${idx === searchHighlightIndex ? 'highlighted' : ''}`}
+                      onClick={() => handleSearchResultSelect(result)}
+                      onMouseEnter={() => setSearchHighlightIndex(idx)}
                     >
-                      {task.title}
-                    </span>
-                    {taskProject && (
-                      <span className="search-result-project" style={{ color: taskProject.color }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: taskProject.color, display: 'inline-block', marginRight: '4px' }} />
-                        {taskProject.name}
+                      <span className="search-result-kind-icon">📁</span>
+                      <span className="search-result-title">
+                        {p.name}
                       </span>
-                    )}
-                  </div>
-                );
+                      <span className="search-result-project" style={{ color: p.color }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: p.color, display: 'inline-block' }} />
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+              {/* Task results section */}
+              {searchResults.some(r => r.kind === 'task') && (
+                <div className="search-section-label">タスク</div>
+              )}
+              {searchResults.map((result, idx) => {
+                if (result.kind === 'task') {
+                  const task = result.task;
+                  const taskProject = projects.find(p => p.id === task.projectId);
+                  return (
+                    <div
+                      key={`task-${task.id}`}
+                      className={`search-result-item ${idx === searchHighlightIndex ? 'highlighted' : ''}`}
+                      onClick={() => handleSearchResultSelect(result)}
+                      onMouseEnter={() => setSearchHighlightIndex(idx)}
+                    >
+                      <span className="search-result-kind-icon" style={{ opacity: task.completed ? 0.5 : 0.7 }}>{task.completed ? '✅' : '☐'}</span>
+                      <span
+                        className="search-result-title"
+                        style={{ textDecoration: task.completed ? 'line-through' : 'none', opacity: task.completed ? 0.6 : 1 }}
+                      >
+                        {task.title}
+                      </span>
+                      {taskProject && (
+                        <span className="search-result-project" style={{ color: taskProject.color }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: taskProject.color, display: 'inline-block', marginRight: '4px' }} />
+                          {taskProject.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
               })}
             </div>
           )}
 
           {showSearchDropdown && searchQuery.trim() && searchResults.length === 0 && (
             <div className="search-dropdown">
-              <div className="search-empty">「{searchQuery}」に一致するタスクが見つかりません</div>
+              <div className="search-empty">「{searchQuery}」に一致する結果が見つかりません</div>
             </div>
           )}
         </div>

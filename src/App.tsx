@@ -64,10 +64,22 @@ function App() {
     selectedTaskIds,
     setUser,
     fetchInitialData,
-    pauseTimer
+    pauseTimer,
+    activeProjectId,
   } = useTaskStore();
 
-  const { isProjectDetailOpen, activeProjectId, projects } = useTaskStore();
+  const { isProjectDetailOpen, projects } = useTaskStore();
+
+  // Track previous project to detect navigation
+  const prevProjectRef = useRef<string | null>(null);
+  const [viewTransitionKey, setViewTransitionKey] = useState(0);
+
+  useEffect(() => {
+    if (prevProjectRef.current !== null && prevProjectRef.current !== activeProjectId) {
+      setViewTransitionKey(k => k + 1);
+    }
+    prevProjectRef.current = activeProjectId;
+  }, [activeProjectId]);
 
   useEffect(() => {
     // Initial session check
@@ -256,7 +268,8 @@ function App() {
           <Topbar />
           <div className="content-area">
             <div
-              className={`main-view-container ${selectedTaskId ? 'with-detail' : ''}`}
+              key={`view-${viewTransitionKey}`}
+              className={`main-view-container ${selectedTaskId ? 'with-detail' : ''} view-enter`}
               onClick={() => { setSelectedTaskId(null); clearSelection(); }}
             >
               {activeTab === 'list' && <TaskListView />}

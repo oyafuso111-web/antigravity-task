@@ -58,6 +58,22 @@
   box-shadow: inset -5px 0 10px rgba(0,0,0,0.02);
 }
 
+/* ─── View transition animation ─── */
+@keyframes viewFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-enter {
+  animation: viewFadeIn 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
 @media (max-width: 768px) {
   .app-container {
     padding-bottom: 64px; /* Space for MobileBottomNav */
