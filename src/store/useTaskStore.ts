@@ -111,7 +111,18 @@ const getLocalDateStr = (d: Date = new Date()) => {
 };
 
 // Mapping Helpers
-const mapTaskToDB = (t: Partial<Task>) => ({
+// Strip undefined values to prevent Supabase from overwriting existing data with null
+const stripUndefined = (obj: Record<string, unknown>): Record<string, unknown> => {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(obj)) {
+    if (obj[key] !== undefined) {
+      result[key] = obj[key];
+    }
+  }
+  return result;
+};
+
+const mapTaskToDB = (t: Partial<Task>) => stripUndefined({
   id: t.id,
   project_id: t.projectId,
   title: t.title,
@@ -153,7 +164,7 @@ const mapDBToTask = (row: any): Task => ({
   homeBucket: row.home_bucket,
 });
 
-const mapProjectToDB = (p: Partial<Project>) => ({
+const mapProjectToDB = (p: Partial<Project>) => stripUndefined({
   id: p.id,
   name: p.name,
   color: p.color,
@@ -175,7 +186,7 @@ const mapDBToProject = (row: any): Project => ({
   comments: row.comments || [],
 });
 
-const mapTagToDB = (tag: Partial<Tag>) => ({
+const mapTagToDB = (tag: Partial<Tag>) => stripUndefined({
   id: tag.id,
   name: tag.name,
   color: tag.color,

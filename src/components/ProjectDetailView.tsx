@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import './ProjectDetailView.css';
 
@@ -23,14 +23,80 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
 
+  // Local state for description with debounced save
+  const [localDescription, setLocalDescription] = useState(project?.description || '');
+  const descriptionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync local description when project changes externally (e.g. fetchInitialData)
+  // but only if the user hasn't made local edits that are pending save
+  const pendingSaveRef = useRef(false);
+  useEffect(() => {
+    if (!pendingSaveRef.current && project?.description !== undefined) {
+      setLocalDescription(project.description || '');
+    }
+  }, [project?.description]);
+
+  // Keep a ref to the latest description for use in cleanup/visibility handlers
+  const latestDescriptionRef = useRef(localDescription);
+  useEffect(() => {
+    latestDescriptionRef.current = localDescription;
+  }, [localDescription]);
+
+  // Flush pending description save on unmount or when tab becomes hidden
+  useEffect(() => {
+    const flushPendingSave = () => {
+      if (descriptionTimerRef.current) {
+        clearTimeout(descriptionTimerRef.current);
+        descriptionTimerRef.current = null;
+      }
+      if (pendingSaveRef.current) {
+        useTaskStore.getState().updateProject(projectId, { description: latestDescriptionRef.current });
+        pendingSaveRef.current = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        flushPendingSave();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      flushPendingSave();
+    };
+  }, [projectId]);
+
+  const debouncedSaveDescription = useCallback((value: string) => {
+    if (descriptionTimerRef.current) {
+      clearTimeout(descriptionTimerRef.current);
+    }
+    pendingSaveRef.current = true;
+    descriptionTimerRef.current = setTimeout(() => {
+      updateProject(projectId, { description: value });
+      pendingSaveRef.current = false;
+      descriptionTimerRef.current = null;
+    }, 500);
+  }, [projectId, updateProject]);
+
   // Escape key to close
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setProjectDetailOpen(false);
+      if (e.key === 'Escape') {
+        // Flush any pending description save before closing
+        if (descriptionTimerRef.current) {
+          clearTimeout(descriptionTimerRef.current);
+          descriptionTimerRef.current = null;
+          updateProject(projectId, { description: localDescription });
+          pendingSaveRef.current = false;
+        }
+        setProjectDetailOpen(false);
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [setProjectDetailOpen]);
+  }, [setProjectDetailOpen, projectId, updateProject, localDescription]);
 
   // Task statistics
   const stats = useMemo(() => {
@@ -71,7 +137,9 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
   };
 
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateProject(projectId, { description: e.target.value });
+    const value = e.target.value;
+    setLocalDescription(value);
+    debouncedSaveDescription(value);
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -133,8 +201,17 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
           <h3>🎯 目的 / 目標</h3>
           <textarea
             className="project-description-area"
-            value={project.description || ''}
+            value={localDescription}
             onChange={handleDescriptionChange}
+            onBlur={() => {
+              // Flush any pending debounced save immediately on blur
+              if (descriptionTimerRef.current) {
+                clearTimeout(descriptionTimerRef.current);
+                descriptionTimerRef.current = null;
+                updateProject(projectId, { description: localDescription });
+                pendingSaveRef.current = false;
+              }
+            }}
             placeholder="このプロジェクトの目的や目標を記入してください..."
           />
         </div>

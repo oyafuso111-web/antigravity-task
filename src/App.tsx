@@ -76,10 +76,12 @@ function App() {
       if (session?.user) fetchInitialData();
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listen for auth changes – only re-fetch on actual sign-in, not on token refresh
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) fetchInitialData();
+      if (session?.user && (event === 'SIGNED_IN')) {
+        fetchInitialData();
+      }
     });
 
     return () => subscription.unsubscribe();
