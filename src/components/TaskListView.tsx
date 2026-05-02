@@ -344,7 +344,7 @@ export const TaskListView: React.FC = () => {
 
       // Home Buckets
       if (activeProjectId === 'p1') {
-        return !t.dueDate && (t.homeBucket === 'inbox' || !t.homeBucket);
+        return !t.dueDate && !t.projectId && (t.homeBucket === 'inbox' || !t.homeBucket);
       }
       if (activeProjectId === 'p-wont-do') {
         return !t.dueDate && t.homeBucket === 'wont-do';
@@ -357,6 +357,9 @@ export const TaskListView: React.FC = () => {
       }
       if (activeProjectId === 'p-memo') {
         return !t.dueDate && t.homeBucket === 'memo';
+      }
+      if (activeProjectId === 'p-no-date') {
+        return !t.dueDate && !!t.projectId && (!t.homeBucket || t.homeBucket === 'inbox');
       }
 
       // Smart Views
@@ -508,7 +511,7 @@ export const TaskListView: React.FC = () => {
 
       // Home Buckets
       if (activeProjectId === 'p1') {
-        return !t.dueDate && (t.homeBucket === 'inbox' || !t.homeBucket);
+        return !t.dueDate && !t.projectId && (t.homeBucket === 'inbox' || !t.homeBucket);
       }
       if (activeProjectId === 'p-wont-do') {
         return !t.dueDate && t.homeBucket === 'wont-do';
@@ -521,6 +524,9 @@ export const TaskListView: React.FC = () => {
       }
       if (activeProjectId === 'p-memo') {
         return !t.dueDate && t.homeBucket === 'memo';
+      }
+      if (activeProjectId === 'p-no-date') {
+        return !t.dueDate && !!t.projectId && (!t.homeBucket || t.homeBucket === 'inbox');
       }
 
       // Smart Views — only show completed tasks whose dueDate matches the specific day

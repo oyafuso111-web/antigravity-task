@@ -27,6 +27,7 @@ export const Topbar: React.FC = () => {
     if (activeProjectId === 'p-dayafter2') return '明々後日';
     if (activeProjectId === 'p-thisweek') return '今週';
     if (activeProjectId === 'p-nextweek') return '来週以降';
+    if (activeProjectId === 'p-no-date') return '期日未設定';
     if (activeProjectId === 'completed') return '完了したタスク';
     if (activeProjectId?.startsWith('t-')) {
       const tagId = activeProjectId.slice(2);
@@ -92,7 +93,7 @@ export const Topbar: React.FC = () => {
     if (task.homeBucket === 'wont-do') return 'p-wont-do';
     if (task.homeBucket === 'do-later') return 'p-do-later';
     if (task.homeBucket === 'memo') return 'p-memo';
-    if (task.projectId) return task.projectId;
+    if (task.projectId) return 'p-no-date';
     return 'p1'; // inbox
   };
 

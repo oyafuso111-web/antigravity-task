@@ -141,7 +141,7 @@ export const Sidebar: React.FC = () => {
 
   const handleNavClick = (id: string) => {
     setActiveProject(id);
-    const smartViews = ['p-today', 'p-tomorrow', 'p-dayafter', 'p-dayafter2', 'p-thisweek', 'p-nextweek', 'p-waiting', 'p-wont-do', 'p-do-later', 'p-memo', 'completed', 'p1'];
+    const smartViews = ['p-today', 'p-tomorrow', 'p-dayafter', 'p-dayafter2', 'p-thisweek', 'p-nextweek', 'p-waiting', 'p-wont-do', 'p-do-later', 'p-memo', 'p-no-date', 'completed', 'p1'];
     if (smartViews.includes(id)) {
       setActiveTab('list');
     }
@@ -283,6 +283,7 @@ export const Sidebar: React.FC = () => {
         <ul className="nav-list">
           <DroppableNavItem id="p1" label="INBOX" icon="📥" isActive={activeProjectId === 'p1'} onClick={() => handleNavClick('p1')} />
           <DroppableNavItem id="p-waiting" label="連絡待ち" icon="⏯️" isActive={activeProjectId === 'p-waiting'} onClick={() => handleNavClick('p-waiting')} />
+          <DroppableNavItem id="p-no-date" label="期日未設定" icon="📌" isActive={activeProjectId === 'p-no-date'} onClick={() => handleNavClick('p-no-date')} />
           <DroppableNavItem id="p-memo" label="メモ" icon="📝" isActive={activeProjectId === 'p-memo'} onClick={() => handleNavClick('p-memo')} />
           
           {homeExpanded && (
