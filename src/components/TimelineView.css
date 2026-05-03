@@ -819,6 +819,58 @@
   background: rgba(106, 68, 225, 0.08);
 }
 
+/* ── Today Start Button ── */
+.tl-today-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tl-today-start-btn svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.tl-today-start-btn:hover {
+  background: var(--brand-gradient);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(106, 68, 225, 0.25);
+}
+
+.tl-today-start-btn:hover svg {
+  opacity: 1;
+  stroke: white;
+}
+
+.tl-today-start-btn:active {
+  transform: scale(0.96);
+}
+
+.tl-today-start-btn.active {
+  background: var(--brand-gradient);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(106, 68, 225, 0.25);
+}
+
+.tl-today-start-btn.active svg {
+  opacity: 1;
+  stroke: white;
+}
+
 /* ── Search Box ── */
 .tl-search-box {
   display: flex;
@@ -1028,4 +1080,23 @@
 .tl-unscheduled-task.jump-highlight .tl-task-title {
   color: var(--brand-solid);
   font-weight: 700;
+}
+
+/* ── Drop Highlight Animation ── */
+@keyframes tl-drop-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(106, 68, 225, 0.7); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(106, 68, 225, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(106, 68, 225, 0); }
+}
+
+.tl-task-chip.chip-drop-highlight {
+  animation: tl-drop-pulse 0.6s ease-out;
+  border-color: var(--brand-solid) !important;
+  z-index: 5;
+}
+
+.tl-unscheduled-task.chip-drop-highlight {
+  animation: tl-drop-pulse 0.6s ease-out;
+  border-color: var(--brand-solid) !important;
+  z-index: 5;
 }

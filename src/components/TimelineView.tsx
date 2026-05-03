@@ -9,6 +9,7 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
+  addDays,
   addWeeks,
   subWeeks,
   addMonths,
@@ -56,6 +57,7 @@ export const TimelineView: React.FC = () => {
   const { tasks, projects, updateTask, addTask, toggleTaskCompletion, deleteTask, setSelectedTaskId, timelineJumpTaskId, setTimelineJumpTaskId } = useTaskStore();
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [todayStartMode, setTodayStartMode] = useState(false);
   const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dropTargetDateStr, setDropTargetDateStr] = useState<string | null>(null);
@@ -63,6 +65,7 @@ export const TimelineView: React.FC = () => {
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [jumpHighlightTaskId, setJumpHighlightTaskId] = useState<string | null>(null);
+  const [recentlyDroppedTaskId, setRecentlyDroppedTaskId] = useState<string | null>(null);
   const gridBodyRef = useRef<HTMLDivElement>(null);
 
   const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
@@ -94,7 +97,16 @@ export const TimelineView: React.FC = () => {
   // Compute date range
   const { days, dateStrs } = useMemo(() => {
     let start: Date, end: Date;
-    if (viewMode === 'weekly') {
+    if (todayStartMode) {
+      // Today-start mode: start from today
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+      if (viewMode === 'weekly') {
+        end = addDays(start, 6);
+      } else {
+        end = addDays(start, 30);
+      }
+    } else if (viewMode === 'weekly') {
       start = startOfWeek(currentDate, { weekStartsOn: 1 });
       end = endOfWeek(currentDate, { weekStartsOn: 1 });
     } else {
@@ -104,20 +116,56 @@ export const TimelineView: React.FC = () => {
     const days = eachDayOfInterval({ start, end });
     const dateStrs = days.map(d => format(d, 'yyyy-MM-dd'));
     return { days, dateStrs };
-  }, [viewMode, currentDate]);
+  }, [viewMode, currentDate, todayStartMode]);
 
   // Header label
   const headerLabel = useMemo(() => {
+    if (todayStartMode) {
+      return `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`;
+    }
     if (viewMode === 'weekly') {
       return `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`;
     }
     return format(currentDate, 'MMMM yyyy');
-  }, [viewMode, currentDate, days]);
+  }, [viewMode, currentDate, days, todayStartMode]);
 
   // Navigation
-  const goToday = () => setCurrentDate(new Date());
-  const goPrev = () => setCurrentDate(d => viewMode === 'weekly' ? subWeeks(d, 1) : subMonths(d, 1));
-  const goNext = () => setCurrentDate(d => viewMode === 'weekly' ? addWeeks(d, 1) : addMonths(d, 1));
+  const goToday = () => { setTodayStartMode(false); setCurrentDate(new Date()); };
+  const goPrev = () => { setTodayStartMode(false); setCurrentDate(d => viewMode === 'weekly' ? subWeeks(d, 1) : subMonths(d, 1)); };
+  const goNext = () => { setTodayStartMode(false); setCurrentDate(d => viewMode === 'weekly' ? addWeeks(d, 1) : addMonths(d, 1)); };
+
+  // 当日起点: toggle today-start mode & reschedule overdue tasks to today
+  const handleTodayStart = useCallback(() => {
+    if (todayStartMode) {
+      // Turn off today-start mode, go back to normal view at today
+      setTodayStartMode(false);
+      setCurrentDate(new Date());
+      return;
+    }
+
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${day}`;
+
+    // Find overdue tasks (dueDate before today, not completed)
+    const overdueTasks = tasks.filter(t => {
+      if (t.completed) return false;
+      if (!t.dueDate) return false;
+      const nd = normalizeDateStr(t.dueDate);
+      return nd !== null && nd < todayStr;
+    });
+
+    // Move overdue tasks' due dates to today
+    overdueTasks.forEach(t => {
+      updateTask(t.id, { dueDate: todayStr });
+    });
+
+    // Enable today-start mode
+    setTodayStartMode(true);
+    setCurrentDate(now);
+  }, [tasks, updateTask, todayStartMode]);
 
   // Check if current period contains today
   const hasTodayInRange = useMemo(() => {
@@ -280,6 +328,8 @@ export const TimelineView: React.FC = () => {
         }
       }
       updateTask(taskId, updates);
+      setRecentlyDroppedTaskId(taskId);
+      setTimeout(() => setRecentlyDroppedTaskId(null), 1500);
     }
     setDragTaskId(null);
     setDropTargetDateStr(null);
@@ -419,10 +469,24 @@ export const TimelineView: React.FC = () => {
             className={`tl-today-btn ${hasTodayInRange ? 'in-range' : ''}`}
             onClick={goToday}
           >
-            Today
+            Default
           </button>
         </div>
         <div className="tl-controls">
+          <button
+            className={`tl-today-start-btn ${todayStartMode ? 'active' : ''}`}
+            onClick={handleTodayStart}
+            title="当日起点で表示（期限切れタスクを当日に移動）"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+              <circle cx="12" cy="16" r="2" />
+            </svg>
+            Today
+          </button>
           <div className="tl-search-box">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, flexShrink: 0 }}>
               <circle cx="11" cy="11" r="8" />
@@ -593,6 +657,7 @@ export const TimelineView: React.FC = () => {
                   const isSearchMatch = hasSearchQuery && searchMatchIds.has(task.id);
                   const isDimmed = hasSearchQuery && !isSearchMatch;
                   const isCompleting = completingTaskIds.has(task.id);
+                  const isRecentlyDropped = recentlyDroppedTaskId === task.id;
 
                   return (
                     <div key={task.id} data-task-id={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompleting ? 'completing-animation' : ''}`}>
@@ -659,7 +724,7 @@ export const TimelineView: React.FC = () => {
                             >
                               {hasTask && (
                                 <div
-                                  className={`tl-task-chip ${isDragging ? 'chip-dragging' : ''} ${isSearchMatch ? 'chip-search-match' : ''}`}
+                                  className={`tl-task-chip ${isDragging ? 'chip-dragging' : ''} ${isSearchMatch ? 'chip-search-match' : ''} ${isRecentlyDropped ? 'chip-drop-highlight' : ''}`}
                                   style={{
                                     backgroundColor: group.projectColor,
                                     borderColor: group.projectColor,
@@ -705,11 +770,12 @@ export const TimelineView: React.FC = () => {
                   const isSearchMatchU = hasSearchQuery && searchMatchIds.has(task.id);
                   const isDimmedU = hasSearchQuery && !isSearchMatchU;
                   const isCompletingU = completingTaskIds.has(task.id);
+                  const isRecentlyDroppedU = recentlyDroppedTaskId === task.id;
                   return (
                     <div
                       key={task.id}
                       data-task-id={task.id}
-                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''} ${isSearchMatchU ? 'search-match' : ''} ${isDimmedU ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompletingU ? 'completing-animation' : ''}`}
+                      className={`tl-unscheduled-task ${isDragging ? 'dragging' : ''} ${isSearchMatchU ? 'search-match' : ''} ${isDimmedU ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompletingU ? 'completing-animation' : ''} ${isRecentlyDroppedU ? 'chip-drop-highlight' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}
