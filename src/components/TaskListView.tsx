@@ -356,7 +356,7 @@ export const TaskListView: React.FC = () => {
         return !t.dueDate && t.homeBucket === 'waiting';
       }
       if (activeProjectId === 'p-memo') {
-        return !t.dueDate && t.homeBucket === 'memo';
+        return !t.dueDate && !t.projectId && t.homeBucket === 'memo';
       }
       if (activeProjectId === 'p-no-date') {
         return !t.dueDate && !!t.projectId && (!t.homeBucket || t.homeBucket === 'inbox');
@@ -523,7 +523,7 @@ export const TaskListView: React.FC = () => {
         return !t.dueDate && t.homeBucket === 'waiting';
       }
       if (activeProjectId === 'p-memo') {
-        return !t.dueDate && t.homeBucket === 'memo';
+        return !t.dueDate && !t.projectId && t.homeBucket === 'memo';
       }
       if (activeProjectId === 'p-no-date') {
         return !t.dueDate && !!t.projectId && (!t.homeBucket || t.homeBucket === 'inbox');

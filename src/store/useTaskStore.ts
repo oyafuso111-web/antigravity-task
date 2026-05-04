@@ -67,6 +67,7 @@ interface TaskStore {
 
   fetchInitialData: () => Promise<void>;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'accumulatedTime' | 'subtasks' | 'comments' | 'order' | 'description' | 'recurrence'> & { homeBucket?: HomeBucket | null }) => void;
+  duplicateTask: (id: string) => void;
   moveToSmartView: (taskId: string, targetViewId: string) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   updateBulkTasksDate: (taskIds: string[], dueDate: string | null) => void;
@@ -532,11 +533,58 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
+  duplicateTask: async (id) => {
+    const { user, tasks } = get();
+    const taskToCopy = tasks.find(t => t.id === id);
+    if (!taskToCopy) return;
+
+    const newTask: Task = {
+      ...taskToCopy,
+      id: crypto.randomUUID(),
+      title: `${taskToCopy.title}_Copy`,
+      completed: false,
+      createdAt: new Date().toISOString(),
+      accumulatedTime: 0,
+      dailyLogs: {},
+      timeBlocks: [],
+      order: tasks.length,
+      subtasks: taskToCopy.subtasks.map(st => ({
+        ...st,
+        id: crypto.randomUUID(),
+        completed: false
+      })),
+      comments: taskToCopy.comments.map(c => ({
+        ...c,
+        id: crypto.randomUUID()
+      }))
+    };
+
+    set((state) => ({ tasks: [...state.tasks, newTask] }));
+
+    if (user) {
+      await supabase.from('tasks').insert({
+        ...mapTaskToDB(newTask),
+        user_id: user.id
+      });
+    }
+    
+    get().setSelectedTaskId(newTask.id);
+  },
+
   moveToSmartView: async (taskId, targetViewId) => {
-    const { user } = get();
+    const { user, tasks } = get();
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    if (targetViewId === 'p-no-date' && !task.projectId) {
+      window.alert('プロジェクトが設定されていないため移動できません');
+      return;
+    }
+
     const now = new Date();
     const updatedTags = [...get().tags];
     let waitingTagId: string | null = null;
+    let memoTagId: string | null = null;
     let newTagToSync: Tag | null = null;
 
     if (targetViewId === 'p-waiting') {
@@ -553,6 +601,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         newTagToSync = waitingTag;
       }
       waitingTagId = waitingTag.id;
+    }
+
+    if (targetViewId === 'p-memo') {
+      const tagName = '📝メモ';
+      let memoTag = updatedTags.find(tag => tag.name === tagName);
+      if (!memoTag) {
+        memoTag = {
+          id: crypto.randomUUID(),
+          name: tagName,
+          color: '#888888',
+          createdAt: now.toISOString()
+        };
+        updatedTags.push(memoTag);
+        newTagToSync = memoTag;
+      }
+      memoTagId = memoTag.id;
     }
 
     set((state) => ({
@@ -613,7 +677,35 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           return { ...t, dueDate: null, homeBucket: 'waiting' as HomeBucket, tagIds: newTagIds, comments: [...(t.comments || []), dropComment] };
         }
         if (targetViewId === 'p-memo') {
-          return { ...t, dueDate: null, homeBucket: 'memo' as HomeBucket };
+          const currentTagIds = t.tagIds || [];
+          const newTagIds = memoTagId && !currentTagIds.includes(memoTagId)
+            ? [...currentTagIds, memoTagId]
+            : currentTagIds;
+
+          let commentText = '';
+          if (t.projectId || t.dueDate) {
+            const clearedItems = [];
+            if (t.projectId) {
+              const p = get().projects.find(p => p.id === t.projectId);
+              clearedItems.push(`プロジェクト: ${p ? p.name : '不明'}`);
+            }
+            if (t.dueDate) {
+              clearedItems.push(`期日: ${t.dueDate.slice(0, 10)}`);
+            }
+            commentText = `メモへ移動によりクリア - ${clearedItems.join(' / ')}`;
+          }
+
+          const newComments = [...(t.comments || [])];
+          if (commentText) {
+            newComments.push({
+              id: crypto.randomUUID(),
+              userName: 'System',
+              text: commentText,
+              createdAt: now.toISOString()
+            });
+          }
+
+          return { ...t, dueDate: null, projectId: null, homeBucket: 'memo' as HomeBucket, tagIds: newTagIds, comments: newComments };
         }
 
         return t;

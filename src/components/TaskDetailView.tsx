@@ -372,6 +372,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     addTag,
     moveTask,
     toggleTaskCompletion,
+    duplicateTask,
     deleteTask,
     selectedTaskIds,
     addTimeBlock,
@@ -514,6 +515,17 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
             }}
           >
             {task.completed ? '✓ Completed' : 'Mark Complete'}
+          </button>
+          <button
+            className="copy-task-btn"
+            onClick={() => duplicateTask(taskId)}
+            style={{
+              background: 'none', border: '1px solid var(--border-color)', 
+              color: 'var(--text-secondary)', padding: '6px 12px', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600
+            }}
+          >
+            📋 Copy
           </button>
           <button
             className="delete-task-btn"
