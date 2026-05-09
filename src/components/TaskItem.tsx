@@ -42,6 +42,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
   const [projectSelectedIndex, setProjectSelectedIndex] = useState(0);
+  const projectDropdownListRef = useRef<HTMLDivElement>(null);
 
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +52,16 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [highlightedTaskId, task.id]);
+
+  // Auto-scroll project dropdown to keep selected item visible
+  useEffect(() => {
+    if (showProjectDropdown && projectDropdownListRef.current) {
+      const item = projectDropdownListRef.current.querySelector(`[data-proj-idx="${projectSelectedIndex}"]`) as HTMLElement;
+      if (item) {
+        item.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [projectSelectedIndex, showProjectDropdown]);
 
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
@@ -187,6 +198,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
 
   const getPriorityColor = (p: Priority) => {
     if (p === '1st') return 'var(--priority-1st)';
+    if (p === 'quick') return 'var(--priority-quick)';
     if (p === 'high') return 'var(--priority-high)';
     if (p === 'mid') return 'var(--priority-mid)';
     if (p === 'low') return 'var(--priority-low)';
@@ -432,7 +444,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
           <div key="project" className="task-cell cell-project" tabIndex={0}
             style={{ width: `${columnWidths.project}px`, minWidth: `${columnWidths.project}px`, maxWidth: `${columnWidths.project}px`, flexShrink: 0, flexGrow: 0, position: 'relative', overflow: 'visible' }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' || e.key === 'ArrowDown') {
                 e.preventDefault();
                 e.stopPropagation();
                 setShowProjectDropdown(!showProjectDropdown);
@@ -523,9 +535,10 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                        fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box'
                      }}
                    />
-                   <div style={{ overflowY: 'auto', flex: 1 }}>
+                   <div ref={projectDropdownListRef} style={{ overflowY: 'auto', flex: 1 }}>
                      <div 
                        className="project-dropdown-item"
+                       data-proj-idx={0}
                        style={{ 
                          padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
                          backgroundColor: projectSelectedIndex === 0 ? 'var(--bg-hover)' : 'transparent'
@@ -544,6 +557,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                      {filteredProjects.map((p, idx) => (
                        <div 
                          key={p.id} className="project-dropdown-item"
+                         data-proj-idx={idx + 1}
                          style={{ 
                            padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
                            backgroundColor: projectSelectedIndex === idx + 1 ? 'var(--bg-hover)' : 'transparent'
@@ -563,6 +577,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                      {projectSearch.trim() && !projects.find(p => p.name.toLowerCase() === projectSearch.toLowerCase().trim()) && (
                        <div 
                          className="project-dropdown-item create-new"
+                         data-proj-idx={filteredProjects.length + 1}
                          style={{
                            padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
                            borderRadius: '4px', borderTop: '1px solid var(--border-color)', marginTop: '4px', color: 'var(--brand-solid)', fontWeight: 500,
@@ -810,6 +825,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
             >
               <option value="none">—</option>
               <option value="1st">1st</option>
+              <option value="quick">すぐ終わる</option>
               <option value="high">High</option>
               <option value="mid">Mid</option>
               <option value="low">Low</option>

@@ -230,7 +230,7 @@
   align-items: center;
   gap: 4px;
   cursor: grab;
-  border-left: 2px solid transparent;
+  border-left: 3px solid transparent;
   transition: box-shadow var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
   min-width: 0;
   height: 22px;
@@ -298,7 +298,6 @@
 
 .calendar-task-pill:hover {
   background-color: var(--border-color);
-  border-left-color: var(--brand-solid);
   transform: translateY(-1px);
 }
 

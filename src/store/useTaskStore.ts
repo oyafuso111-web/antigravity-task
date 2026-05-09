@@ -551,7 +551,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       subtasks: taskToCopy.subtasks.map(st => ({
         ...st,
         id: crypto.randomUUID(),
-        completed: false
       })),
       comments: taskToCopy.comments.map(c => ({
         ...c,

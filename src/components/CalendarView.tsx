@@ -16,10 +16,13 @@ import {
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useTaskStore } from '../store/useTaskStore';
-import type { Task } from '../types';
+import type { Task, Project } from '../types';
+import { sortProjectsCustom } from '../utils/sortUtils';
+
+const priorityOrder: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
 import './CalendarView.css';
 
-const DraggableCalendarTask: React.FC<{ task: Task }> = ({ task }) => {
+const DraggableCalendarTask: React.FC<{ task: Task; project?: Project }> = ({ task, project }) => {
   const { setSelectedTaskId, updateTask } = useTaskStore();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `calendar-task-${task.id}`,
@@ -29,10 +32,11 @@ const DraggableCalendarTask: React.FC<{ task: Task }> = ({ task }) => {
     }
   });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 999 : 1,
+    borderLeftColor: project?.color || 'transparent',
   };
 
   return (
@@ -74,9 +78,10 @@ const DroppableCalendarCell: React.FC<{
   day: Date;
   monthStart: Date;
   dayTasks: Task[];
+  projects: Project[];
   viewType: 'month' | 'week';
   onAddTask: (day: Date, title: string) => void;
-}> = ({ day, monthStart, dayTasks, viewType, onAddTask }) => {
+}> = ({ day, monthStart, dayTasks, projects, viewType, onAddTask }) => {
   const dateStr = format(day, 'yyyy-MM-dd');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -125,9 +130,10 @@ const DroppableCalendarCell: React.FC<{
         </button>
       </div>
       <div className="day-tasks">
-        {displayTasks.map(task => (
-          <DraggableCalendarTask key={task.id} task={task} />
-        ))}
+        {displayTasks.map(task => {
+          const proj = projects.find(p => p.id === task.projectId);
+          return <DraggableCalendarTask key={task.id} task={task} project={proj} />;
+        })}
         {isAdding && (
           <input
             autoFocus
@@ -272,13 +278,29 @@ export const CalendarView: React.FC = () => {
         ))}
 
         {days.map(day => {
-          const dayTasks = activeTasks.filter(t => t.dueDate && isSameDay(new Date(t.dueDate), day));
+          const dayTasks = activeTasks.filter(t => t.dueDate && isSameDay(new Date(t.dueDate), day))
+            .sort((a, b) => {
+              // Priority desc
+              const pc = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+              if (pc !== 0) return pc;
+              // Project name asc (null last)
+              const hasA = !!a.projectId;
+              const hasB = !!b.projectId;
+              if (hasA && !hasB) return -1;
+              if (!hasA && hasB) return 1;
+              const pA = projects.find(p => p.id === a.projectId)?.name || '';
+              const pB = projects.find(p => p.id === b.projectId)?.name || '';
+              const projCmp = sortProjectsCustom(pA, pB);
+              if (projCmp !== 0) return projCmp;
+              return (a.createdAt || '').localeCompare(b.createdAt || '');
+            });
           return (
             <DroppableCalendarCell
               key={day.toString()}
               day={day}
               monthStart={monthStart}
               dayTasks={dayTasks}
+              projects={projects}
               viewType={viewType}
               onAddTask={handleAddTask}
             />

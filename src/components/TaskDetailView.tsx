@@ -744,6 +744,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
               >
                 <option value="none" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-surface)' }}>None</option>
                 <option value="1st" style={{ color: 'white', backgroundColor: 'var(--priority-1st)' }}>1st</option>
+                <option value="quick" style={{ color: 'white', backgroundColor: 'var(--priority-quick)' }}>すぐ終わる</option>
                 <option value="high" style={{ color: 'white', backgroundColor: 'var(--priority-high)' }}>High</option>
                 <option value="mid" style={{ color: 'white', backgroundColor: 'var(--priority-mid)' }}>Mid</option>
                 <option value="low" style={{ color: 'white', backgroundColor: 'var(--priority-low)' }}>Low</option>

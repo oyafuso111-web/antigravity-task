@@ -1,4 +1,4 @@
-export type Priority = 'none' | '1st' | 'high' | 'mid' | 'low';
+export type Priority = 'none' | '1st' | 'quick' | 'high' | 'mid' | 'low';
 
 export interface Tag {
   id: string;

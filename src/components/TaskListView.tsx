@@ -410,7 +410,7 @@ export const TaskListView: React.FC = () => {
             break;
           }
           case 'priority': {
-            const order: Record<string, number> = { '1st': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
+            const order: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
             cmp = (order[a.priority] || 0) - (order[b.priority] || 0);
             break;
           }
@@ -459,7 +459,7 @@ export const TaskListView: React.FC = () => {
         });
       } else {
         // Active: date asc → priority desc → project name asc
-        const priorityOrder: Record<string, number> = { '1st': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
+        const priorityOrder: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
         filtered.sort((a, b) => {
           // Date asc (null last)
           if (a.dueDate && !b.dueDate) return -1;
@@ -815,6 +815,7 @@ export const TaskListView: React.FC = () => {
                       >
                         <option value="none" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-surface)' }}>—</option>
                         <option value="1st" style={{ color: 'white', backgroundColor: 'var(--priority-1st)' }}>1st</option>
+                        <option value="quick" style={{ color: 'white', backgroundColor: 'var(--priority-quick)' }}>すぐ終わる</option>
                         <option value="high" style={{ color: 'white', backgroundColor: 'var(--priority-high)' }}>High</option>
                         <option value="mid" style={{ color: 'white', backgroundColor: 'var(--priority-mid)' }}>Mid</option>
                         <option value="low" style={{ color: 'white', backgroundColor: 'var(--priority-low)' }}>Low</option>

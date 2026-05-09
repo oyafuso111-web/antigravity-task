@@ -16,7 +16,7 @@ export const MobileAddTaskModal: React.FC = () => {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [projectId, setProjectId] = useState<string>('');
-  const [priority, setPriority] = useState<'none'|'low'|'mid'|'high'|'1st'>('none');
+  const [priority, setPriority] = useState<'none'|'low'|'mid'|'high'|'quick'|'1st'>('none');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
   
@@ -162,12 +162,13 @@ export const MobileAddTaskModal: React.FC = () => {
             </div>
             <div className="form-group half">
               <label>Priority</label>
-              <select value={priority} onChange={(e) => setPriority(e.target.value as 'none'|'low'|'mid'|'high'|'1st')}>
+              <select value={priority} onChange={(e) => setPriority(e.target.value as 'none'|'low'|'mid'|'high'|'quick'|'1st')}>
                 <option value="none">None</option>
-                <option value="low">Low</option>
-                <option value="mid">Medium</option>
-                <option value="high">High</option>
                 <option value="1st">Top (1st)</option>
+                <option value="quick">すぐ終わる</option>
+                <option value="high">High</option>
+                <option value="mid">Medium</option>
+                <option value="low">Low</option>
               </select>
             </div>
           </div>

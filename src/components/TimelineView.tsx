@@ -22,6 +22,7 @@ type ViewMode = 'weekly' | 'monthly';
 
 const getPriorityColor = (p: Priority) => {
   if (p === '1st') return '#E03E3E';
+  if (p === 'quick') return '#3B82F6';
   if (p === 'high') return '#F06A6A';
   if (p === 'mid') return '#E89A2D';
   if (p === 'low') return '#6D6E71';
@@ -30,6 +31,7 @@ const getPriorityColor = (p: Priority) => {
 
 const getPriorityLabel = (p: Priority) => {
   if (p === '1st') return '1st';
+  if (p === 'quick') return 'すぐ終わる';
   if (p === 'high') return 'High';
   if (p === 'mid') return 'Mid';
   if (p === 'low') return 'Low';
