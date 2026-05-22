@@ -48,6 +48,19 @@
   background-color: var(--bg-hover);
 }
 
+.resize-handle:hover,
+.resize-handle:active {
+  background-color: var(--brand-solid);
+  opacity: 0.5;
+  width: 3px !important;
+  right: -1px !important;
+  border-radius: 2px;
+}
+
+.resize-handle:active {
+  opacity: 0.8;
+}
+
 .task-list {
   flex: 1;
   overflow-y: auto;

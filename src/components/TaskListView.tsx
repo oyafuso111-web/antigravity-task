@@ -111,6 +111,7 @@ const SortableHeader: React.FC<{
           fontSize: '0.6rem',
           opacity: 0,
           padding: '4px 6px',
+          paddingRight: '10px',
           borderRadius: '3px',
           transition: 'opacity 0.15s',
           flexShrink: 0,
@@ -122,12 +123,13 @@ const SortableHeader: React.FC<{
       <div
         className="resize-handle"
         onMouseDown={handleResizeStart}
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
         style={{
           position: 'absolute',
-          right: 0,
+          right: '-6px',
           top: 0,
           bottom: 0,
-          width: '5px',
+          width: '12px',
           cursor: 'col-resize',
           zIndex: 20,
         }}
@@ -263,6 +265,9 @@ export const TaskListView: React.FC = () => {
   const handleGridNavigation = (e: React.KeyboardEvent) => {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
 
+    // Don't interfere during IME composition
+    if (e.nativeEvent.isComposing) return;
+
     // Avoid hijacking native text cursor movement unless at boundaries
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'text') {
@@ -311,6 +316,8 @@ export const TaskListView: React.FC = () => {
 
   // Ctrl+Enter global shortcut
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
+    // Don't interfere during IME composition
+    if (e.isComposing) return;
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       addTaskInputRef.current?.focus();

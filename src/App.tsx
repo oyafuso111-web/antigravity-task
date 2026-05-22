@@ -35,6 +35,10 @@ class SafeKeyboardSensor extends KeyboardSensor {
     eventName: activator.eventName as 'onKeyDown',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (event: React.KeyboardEvent, options: KeyboardSensorOptions, context: any) => {
+      // Don't activate drag during IME composition (e.g. Space for kanji conversion)
+      if (event.nativeEvent?.isComposing || (event.nativeEvent as KeyboardEvent)?.isComposing) {
+        return false;
+      }
       const target = event.target as HTMLElement;
       const tagName = target.tagName.toUpperCase();
       // Don't activate drag when user is typing in form elements
