@@ -5,7 +5,7 @@ import type { Task, Project } from '../types';
 import './Topbar.css';
 
 type SearchResult =
-  | { kind: 'task'; task: Task }
+  | { kind: 'task'; task: Task; matchField?: string }
   | { kind: 'project'; project: Project };
 
 export const Topbar: React.FC = () => {
@@ -46,9 +46,28 @@ export const Topbar: React.FC = () => {
       .slice(0, 4)
       .map(p => ({ kind: 'project', project: p }));
     const matchedTasks: SearchResult[] = tasks
-      .filter(t => t.title.toLowerCase().includes(q))
+      .filter(t => {
+        if (t.title.toLowerCase().includes(q)) return true;
+        if (t.description && t.description.toLowerCase().includes(q)) return true;
+        if (t.subtasks && t.subtasks.some(st => st.title.toLowerCase().includes(q))) return true;
+        if (t.comments && t.comments.some(c => c.text.toLowerCase().includes(q))) return true;
+        return false;
+      })
       .slice(0, 8)
-      .map(t => ({ kind: 'task', task: t }));
+      .map(t => {
+        // Determine which field matched for display hint
+        let matchField: string | undefined;
+        if (!t.title.toLowerCase().includes(q)) {
+          if (t.description && t.description.toLowerCase().includes(q)) {
+            matchField = 'Description';
+          } else if (t.subtasks && t.subtasks.some(st => st.title.toLowerCase().includes(q))) {
+            matchField = 'Subtask';
+          } else if (t.comments && t.comments.some(c => c.text.toLowerCase().includes(q))) {
+            matchField = 'Comment';
+          }
+        }
+        return { kind: 'task', task: t, matchField };
+      });
     return [...matchedProjects, ...matchedTasks];
   }, [searchQuery, tasks, projects]);
 
@@ -301,6 +320,7 @@ export const Topbar: React.FC = () => {
               {searchResults.map((result, idx) => {
                 if (result.kind === 'task') {
                   const task = result.task;
+                  const matchField = result.matchField;
                   const taskProject = projects.find(p => p.id === task.projectId);
                   return (
                     <div
@@ -316,6 +336,19 @@ export const Topbar: React.FC = () => {
                       >
                         {task.title}
                       </span>
+                      {matchField && (
+                        <span style={{
+                          fontSize: '0.65rem',
+                          padding: '1px 6px',
+                          borderRadius: '3px',
+                          backgroundColor: 'var(--bg-hover)',
+                          color: 'var(--text-secondary)',
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {matchField}
+                        </span>
+                      )}
                       {taskProject && (
                         <span className="search-result-project" style={{ color: taskProject.color }}>
                           <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: taskProject.color, display: 'inline-block', marginRight: '4px' }} />

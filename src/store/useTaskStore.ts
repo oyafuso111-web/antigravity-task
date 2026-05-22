@@ -316,7 +316,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   highlightedTaskId: null,
   timelineJumpTaskId: null,
   weekStartsOn: 0,
-  showCompleted: false,
+  showCompleted: true,
   isProjectDetailOpen: false,
   columnOrder: ['name', 'project', 'time', 'estimatedMinutes', 'tags', 'priority', 'date', 'createdAt'],
   columnWidths: {
