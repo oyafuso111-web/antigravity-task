@@ -53,6 +53,20 @@ export const Topbar: React.FC = () => {
         if (t.comments && t.comments.some(c => c.text.toLowerCase().includes(q))) return true;
         return false;
       })
+      .sort((a, b) => {
+        // 1) Incomplete tasks first, then completed
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        if (!a.completed) {
+          // 2) Incomplete: sort by dueDate descending (null = last)
+          if (a.dueDate && b.dueDate) return b.dueDate.localeCompare(a.dueDate);
+          if (a.dueDate && !b.dueDate) return -1;
+          if (!a.dueDate && b.dueDate) return 1;
+          return 0;
+        } else {
+          // 3) Completed: sort by createdAt descending (proxy for completion date)
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+        }
+      })
       .slice(0, 8)
       .map(t => {
         // Determine which field matched for display hint
