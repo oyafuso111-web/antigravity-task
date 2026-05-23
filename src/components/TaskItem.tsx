@@ -74,7 +74,18 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateText, setDateText] = useState('');
+  const [dateDropUp, setDateDropUp] = useState(false);
   const dateInputRef = useRef<HTMLDivElement>(null);
+
+  // Determine whether the date picker should open upward based on viewport space
+  useEffect(() => {
+    if (showDateInput && dateInputRef.current) {
+      const rect = dateInputRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const calendarHeight = 370; // approximate height of the date picker dropdown
+      setDateDropUp(spaceBelow < calendarHeight);
+    }
+  }, [showDateInput]);
 
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [hasExcessTags, setHasExcessTags] = useState(false);
@@ -868,9 +879,11 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
             </span>
             {showDateInput && (
               <div className="date-picker-dropdown" style={{
-                position: 'absolute', top: '100%', left: 0, zIndex: 20,
+                position: 'absolute',
+                ...(dateDropUp ? { bottom: '100%', marginBottom: '4px' } : { top: '100%', marginTop: '4px' }),
+                left: 0, zIndex: 20,
                 backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
-                borderRadius: '8px', padding: '12px', marginTop: '4px', width: '260px',
+                borderRadius: '8px', padding: '12px', width: '260px',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.18)', boxSizing: 'border-box'
               }} onClick={e => e.stopPropagation()}>
                 {/* Text input for natural language */}
