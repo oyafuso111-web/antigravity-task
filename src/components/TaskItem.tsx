@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Task, Priority } from '../types';
 import { useTaskStore } from '../store/useTaskStore';
 import type { ColumnId } from '../store/useTaskStore';
@@ -74,16 +75,34 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateText, setDateText] = useState('');
-  const [dateDropUp, setDateDropUp] = useState(false);
+  const [datePickerPos, setDatePickerPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
   const dateInputRef = useRef<HTMLDivElement>(null);
+  const datePickerPortalRef = useRef<HTMLDivElement>(null);
 
-  // Determine whether the date picker should open upward based on viewport space
+  // Compute date picker position and handle click-outside when open
   useEffect(() => {
     if (showDateInput && dateInputRef.current) {
       const rect = dateInputRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      const calendarHeight = 370; // approximate height of the date picker dropdown
-      setDateDropUp(spaceBelow < calendarHeight);
+      const calendarHeight = 370;
+      if (spaceBelow < calendarHeight) {
+        setDatePickerPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
+      } else {
+        setDatePickerPos({ top: rect.bottom + 4, left: rect.left });
+      }
+
+      const handleClickOutside = (e: MouseEvent) => {
+        if (
+          datePickerPortalRef.current && !datePickerPortalRef.current.contains(e.target as Node) &&
+          dateInputRef.current && !dateInputRef.current.contains(e.target as Node)
+        ) {
+          setShowDateInput(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    } else {
+      setDatePickerPos(null);
     }
   }, [showDateInput]);
 
@@ -877,11 +896,12 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
             >
               {displayDate || '📅 set'}
             </span>
-            {showDateInput && (
-              <div className="date-picker-dropdown" style={{
-                position: 'absolute',
-                ...(dateDropUp ? { bottom: '100%', marginBottom: '4px' } : { top: '100%', marginTop: '4px' }),
-                left: 0, zIndex: 20,
+            {showDateInput && datePickerPos && createPortal(
+              <div ref={datePickerPortalRef} className="date-picker-dropdown" style={{
+                position: 'fixed',
+                ...(datePickerPos.top != null ? { top: datePickerPos.top } : {}),
+                ...(datePickerPos.bottom != null ? { bottom: datePickerPos.bottom } : {}),
+                left: datePickerPos.left, zIndex: 9999,
                 backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
                 borderRadius: '8px', padding: '12px', width: '260px',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.18)', boxSizing: 'border-box'
@@ -945,7 +965,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
                     setShowDateInput(false);
                   }}
                 />
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         );
