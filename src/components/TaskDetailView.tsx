@@ -377,7 +377,12 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     selectedTaskIds,
     addTimeBlock,
     updateTimeBlock,
-    deleteTimeBlock
+    deleteTimeBlock,
+    addProject,
+    updateProject,
+    addTask,
+    setActiveProject,
+    setActiveTab
   } = useTaskStore();
   const task = tasks.find(t => t.id === taskId);
   
@@ -515,6 +520,61 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
             }}
           >
             {task.completed ? '✓ Completed' : 'Mark Complete'}
+          </button>
+          <button
+            className="convert-project-btn"
+            onClick={() => {
+              if (!task) return;
+              if (!window.confirm(`「${task.title}」をプロジェクトに変換しますか？\n\n・タスク名 → プロジェクト名\n・Description → 目標/説明\n・サブタスク → タスクとして作成\n・コメント → プロジェクトコメント\n\n※元のタスクは削除されます`)) return;
+
+              const newProjectId = crypto.randomUUID();
+              const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB', '#F59E0B', '#8B5CF6'];
+              const color = colors[Math.floor(Math.random() * colors.length)];
+
+              // 1. Create project
+              addProject(task.title, color, newProjectId);
+
+              // 2. Set description and copy comments
+              const projectComments = (task.comments || []).map(c => ({
+                id: crypto.randomUUID(),
+                userName: c.userName,
+                text: c.text,
+                createdAt: c.createdAt,
+              }));
+              updateProject(newProjectId, {
+                description: task.description || '',
+                comments: projectComments.length > 0 ? projectComments : undefined,
+              });
+
+              // 3. Convert subtasks to tasks in the new project
+              task.subtasks.forEach(st => {
+                addTask({
+                  title: st.title,
+                  projectId: newProjectId,
+                  completed: st.completed,
+                  priority: 'none',
+                  tagIds: [],
+                  dueDate: task.dueDate,
+                  homeBucket: null,
+                });
+              });
+
+              // 4. Delete original task
+              deleteTask(taskId);
+              setSelectedTaskId(null);
+
+              // 5. Navigate to new project
+              setActiveProject(newProjectId);
+              setActiveTab('list');
+            }}
+            style={{
+              background: 'none', border: '1px solid var(--brand-solid)', 
+              color: 'var(--brand-solid)', padding: '6px 12px', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600
+            }}
+            title="このタスクをプロジェクトに変換します"
+          >
+            📁 Project化
           </button>
           <button
             className="copy-task-btn"
