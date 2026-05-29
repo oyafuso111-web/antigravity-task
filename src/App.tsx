@@ -92,11 +92,26 @@ function App() {
       if (session?.user) fetchInitialData();
     });
 
-    // Listen for auth changes – re-fetch on sign-in or initial session restore
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        fetchInitialData();
+      if (event === 'SIGNED_OUT') {
+        console.warn('[auth] User signed out');
+        setUser(null);
+        return;
+      }
+
+      // For all other events, only update user if session is present.
+      // This prevents token refresh failures from nuking the user reference
+      // and causing subsequent write operations to silently skip DB sync.
+      if (session?.user) {
+        setUser(session.user);
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          fetchInitialData();
+        }
+      } else if (event === 'TOKEN_REFRESHED') {
+        // Token refresh returned no session – don't clear user yet,
+        // ensureAuthUser will try to re-acquire on next write.
+        console.warn('[auth] TOKEN_REFRESHED but session is null, keeping existing user');
       }
     });
 

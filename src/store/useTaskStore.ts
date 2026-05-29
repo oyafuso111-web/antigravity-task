@@ -253,6 +253,67 @@ const initialTasks: Task[] = [
 // preserved when merging with DB results in fetchInitialData.
 const initialTaskIds = new Set(initialTasks.map(t => t.id));
 
+// ---------------------------------------------------------------------------
+// Auth helper – re-acquire session from Supabase when Zustand store user is
+// null.  This guards against the case where onAuthStateChange fires
+// SIGNED_OUT / TOKEN_REFRESHED with a null session, silently setting
+// `user` to null in the store.  Every write operation now goes through this
+// helper so that the Supabase insert/update is never skipped just because
+// the in-memory user reference went stale.
+// ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ensureAuthUser = async (get: () => TaskStore, set: (p: any) => void): Promise<any | null> => {
+  let user = get().user;
+  if (!user) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      user = data.session?.user ?? null;
+      if (user) {
+        console.log('[auth] Session re-acquired from Supabase');
+        set({ user });
+      }
+    } catch (e) {
+      console.error('[auth] Failed to re-acquire session:', e);
+    }
+  }
+  return user;
+};
+
+// ---------------------------------------------------------------------------
+// Pending-tasks localStorage queue – a safety net so that tasks that failed
+// to sync to Supabase survive a browser restart and can be retried.
+// ---------------------------------------------------------------------------
+const PENDING_TASKS_KEY = 'antigravity_pending_tasks';
+
+const savePendingTask = (task: Task) => {
+  try {
+    const pending: Task[] = JSON.parse(localStorage.getItem(PENDING_TASKS_KEY) || '[]');
+    // Avoid duplicates
+    if (!pending.some(t => t.id === task.id)) {
+      pending.push(task);
+      localStorage.setItem(PENDING_TASKS_KEY, JSON.stringify(pending));
+    }
+  } catch { /* localStorage unavailable */ }
+};
+
+const removePendingTask = (taskId: string) => {
+  try {
+    const pending: Task[] = JSON.parse(localStorage.getItem(PENDING_TASKS_KEY) || '[]');
+    const filtered = pending.filter(t => t.id !== taskId);
+    if (filtered.length > 0) {
+      localStorage.setItem(PENDING_TASKS_KEY, JSON.stringify(filtered));
+    } else {
+      localStorage.removeItem(PENDING_TASKS_KEY);
+    }
+  } catch { /* localStorage unavailable */ }
+};
+
+const getPendingTasks = (): Task[] => {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_TASKS_KEY) || '[]');
+  } catch { return []; }
+};
+
 const calculateNextOccurrence = (currentDate: string, recurrence: Recurrence): Date | null => {
   const date = new Date(currentDate);
   const { frequency, interval, daysOfWeek, dayOfMonth, weekOfMonth, useLastDay } = recurrence;
@@ -360,7 +421,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   fetchInitialData: async () => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     if (!user) return;
 
     const [tasksRes, projectsRes, tagsRes] = await Promise.all([
@@ -391,8 +452,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       });
 
       // Merge locally-added tasks that haven't been synced to DB yet.
-      // If a task exists locally but not in DB (e.g., insert was in-flight),
-      // keep it so it doesn't vanish.
       const dbTaskIds = new Set(mergedTasks.map(t => t.id));
       const unsyncedLocalTasks = currentTasks.filter(
         t => !dbTaskIds.has(t.id) && !initialTaskIds.has(t.id)
@@ -401,7 +460,33 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         console.warn('[fetchInitialData] Preserving unsynced local tasks:', unsyncedLocalTasks.map(t => t.title));
       }
 
-      set({ tasks: [...mergedTasks, ...unsyncedLocalTasks] });
+      // Also recover pending tasks from localStorage that aren't in DB yet
+      const pendingTasks = getPendingTasks();
+      const recoveredTasks: Task[] = [];
+      for (const pt of pendingTasks) {
+        if (!dbTaskIds.has(pt.id) && !unsyncedLocalTasks.some(t => t.id === pt.id)) {
+          // Try to insert into Supabase
+          const { error } = await supabase.from('tasks').insert({
+            ...mapTaskToDB(pt),
+            user_id: user.id
+          });
+          if (error) {
+            console.error('[fetchInitialData] Failed to sync pending task:', pt.title, error);
+            // Keep in local state so user doesn't lose it
+            recoveredTasks.push(pt);
+          } else {
+            console.log('[fetchInitialData] Synced pending task to DB:', pt.title);
+            removePendingTask(pt.id);
+            // The task is now in DB, add it to merged list
+            recoveredTasks.push(pt);
+          }
+        } else {
+          // Already in DB, remove from pending
+          removePendingTask(pt.id);
+        }
+      }
+
+      set({ tasks: [...mergedTasks, ...unsyncedLocalTasks, ...recoveredTasks] });
     }
     if (projectsRes.error) {
       console.error('[fetchInitialData] Failed to fetch projects:', projectsRes.error);
@@ -446,7 +531,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setProjectDetailOpen: (isOpen) => set({ isProjectDetailOpen: isOpen }),
 
   addProjectComment: async (projectId, text) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     const newComment: ProjectComment = {
       id: crypto.randomUUID(),
       userName: 'You',
@@ -467,7 +552,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateProjectComment: async (projectId, commentId, text) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       projects: state.projects.map(p =>
         p.id === projectId ? { ...p, comments: (p.comments || []).map(c => c.id === commentId ? { ...c, text } : c) } : p
@@ -482,7 +567,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   deleteProjectComment: async (projectId, commentId) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       projects: state.projects.map(p =>
         p.id === projectId ? { ...p, comments: (p.comments || []).filter(c => c.id !== commentId) } : p
@@ -532,7 +617,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   }),
 
   addTask: async (taskData) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     const newTask: Task = {
       ...taskData,
       id: crypto.randomUUID(),
@@ -552,6 +637,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((state) => ({ tasks: [...state.tasks, newTask] }));
 
     if (user) {
+      // Save to localStorage as safety net before attempting insert
+      savePendingTask(newTask);
+
       const { error } = await supabase.from('tasks').insert({
         ...mapTaskToDB(newTask),
         user_id: user.id
@@ -560,22 +648,34 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         console.error('[addTask] Failed to insert task to Supabase:', error);
         // Retry once after a short delay
         setTimeout(async () => {
+          const retryUser = await ensureAuthUser(get, set);
+          if (!retryUser) return;
           const { error: retryError } = await supabase.from('tasks').insert({
             ...mapTaskToDB(newTask),
-            user_id: user.id
+            user_id: retryUser.id
           });
           if (retryError) {
             console.error('[addTask] Retry also failed:', retryError);
+            // Task remains in localStorage pending queue for next app start
           } else {
             console.log('[addTask] Retry succeeded for task:', newTask.title);
+            removePendingTask(newTask.id);
           }
         }, 2000);
+      } else {
+        // Success – remove from pending queue
+        removePendingTask(newTask.id);
       }
+    } else {
+      // No auth session at all – save to localStorage so it can be retried
+      console.warn('[addTask] No auth session, saving task to pending queue:', newTask.title);
+      savePendingTask(newTask);
     }
   },
 
   duplicateTask: async (id) => {
-    const { user, tasks } = get();
+    const user = await ensureAuthUser(get, set);
+    const { tasks } = get();
     const taskToCopy = tasks.find(t => t.id === id);
     if (!taskToCopy) return;
 
@@ -612,7 +712,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   moveToSmartView: async (taskId, targetViewId) => {
-    const { user, tasks } = get();
+    const user = await ensureAuthUser(get, set);
+    const { tasks } = get();
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
@@ -764,7 +865,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateTask: async (id, updates) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t))
     }));
@@ -775,7 +876,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateBulkTasksDate: async (taskIds, dueDate) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => taskIds.includes(t.id) ? { ...t, dueDate } : t)
     }));
@@ -786,7 +887,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   deleteTask: async (id) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.filter((t) => t.id !== id)
     }));
@@ -797,7 +898,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   toggleTaskCompletion: async (id) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     let { tasks } = get();
     const { activeTimerTaskId } = get();
     let task = tasks.find(t => t.id === id);
@@ -853,7 +954,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   addSubtask: async (taskId, title) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map((t) => {
         if (t.id === taskId) {
@@ -874,7 +975,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   toggleSubtask: async (taskId, subtaskId) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map((t) => {
         if (t.id === taskId) {
@@ -900,7 +1001,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateSubtask: async (taskId, subtaskId, title) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => {
         if (t.id === taskId) {
@@ -921,7 +1022,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   deleteSubtask: async (taskId, subtaskId) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => {
         if (t.id === taskId) {
@@ -942,7 +1043,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   addComment: async (taskId, text) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map((t) => {
         if (t.id === taskId) {
@@ -968,7 +1069,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateComment: async (taskId, commentId, text) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => {
         if (t.id === taskId) {
@@ -989,7 +1090,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   deleteComment: async (taskId, commentId) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => {
         if (t.id === taskId) {
@@ -1010,7 +1111,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   addProject: async (name, color, explicitId, folderId = null) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     const newProject: Project = {
       id: explicitId || crypto.randomUUID(),
       name,
@@ -1029,7 +1130,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateProject: async (id, updates) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       projects: state.projects.map(p => p.id === id ? { ...p, ...updates } : p)
     }));
@@ -1040,7 +1141,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   toggleProjectFavorite: async (projectId) => {
-    const { user, projects } = get();
+    const user = await ensureAuthUser(get, set);
+    const { projects } = get();
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
 
@@ -1055,7 +1157,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   deleteProject: async (id) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       projects: state.projects.filter(p => p.id !== id),
       tasks: state.tasks.map(t => t.projectId === id ? { ...t, projectId: null } : t),
@@ -1072,7 +1174,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   })),
 
   addTag: async (name, color, id) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     const newTag: Tag = {
       id: id || crypto.randomUUID(),
       name,
@@ -1089,7 +1191,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateTag: async (id, updates) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tags: state.tags.map(t => t.id === id ? { ...t, ...updates } : t)
     }));
@@ -1100,7 +1202,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   deleteTag: async (id) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tags: state.tags.filter(t => t.id !== id),
       tasks: state.tasks.map(t => ({
@@ -1122,7 +1224,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   moveTask: async (taskId, newProjectId) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => t.id === taskId ? { ...t, projectId: newProjectId } : t)
     }));
@@ -1169,7 +1271,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   pauseTimer: async () => {
-    const { activeTimerTaskId, tasks, user, timerStartTimestamp } = get();
+    const user = await ensureAuthUser(get, set);
+    const { activeTimerTaskId, tasks, timerStartTimestamp } = get();
     if (activeTimerTaskId) {
       const task = tasks.find(t => t.id === activeTimerTaskId);
       if (task && timerStartTimestamp) {
@@ -1221,7 +1324,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   tickTimer: () => set({ timerTick: Date.now() }),
 
   setDailyLog: async (taskId, dateStr, seconds) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     let updatedTask: Task | undefined;
 
     set((state) => {
@@ -1302,7 +1405,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   addTimeBlock: async (taskId, startTime, endTime) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     const newBlock: TimeBlock = {
       id: crypto.randomUUID(),
       startTime,
@@ -1337,7 +1440,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateTimeBlock: async (taskId, blockId, updates) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => {
         if (t.id === taskId) {
@@ -1371,7 +1474,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   deleteTimeBlock: async (taskId, blockId) => {
-    const { user } = get();
+    const user = await ensureAuthUser(get, set);
     set((state) => ({
       tasks: state.tasks.map(t => {
         if (t.id === taskId) {
