@@ -28,20 +28,13 @@ export default defineConfig({
         ]
       },
       workbox: {
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
-            handler: 'NetworkOnly',
-            options: {
-              backgroundSync: {
-                name: 'supabase-queue',
-                options: {
-                  maxRetentionTime: 24 * 60 // Retry for max of 24 Hours
-                }
-              }
-            }
-          }
-        ]
+        // Do NOT intercept Supabase API or auth requests with the service
+        // worker.  The previous runtimeCaching + backgroundSync configuration
+        // was causing inconsistent data on read (SELECT returning stale /
+        // partial results) and silent write failures (INSERT queued instead
+        // of executed).  Let the Supabase JS client handle networking directly.
+        navigateFallbackDenylist: [/^\/rest/, /^\/auth/],
+        runtimeCaching: []
       }
     })
   ],
