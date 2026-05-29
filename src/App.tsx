@@ -92,16 +92,31 @@ function App() {
       if (session?.user) fetchInitialData();
     });
 
-    // Listen for auth changes – only re-fetch on actual sign-in, not on token refresh
+    // Listen for auth changes – re-fetch on sign-in or initial session restore
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user && (event === 'SIGNED_IN')) {
+      if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         fetchInitialData();
       }
     });
 
     return () => subscription.unsubscribe();
   }, [setUser, fetchInitialData]);
+
+  // Re-fetch data from Supabase when the user returns to this tab,
+  // so any tasks that were only saved locally get reconciled with the DB.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const { user } = useTaskStore.getState();
+        if (user) {
+          fetchInitialData();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchInitialData]);
 
   const [, setTick] = useState(0);
 

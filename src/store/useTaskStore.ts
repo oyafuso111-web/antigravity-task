@@ -249,6 +249,10 @@ const initialTasks: Task[] = [
   }
 ];
 
+// IDs of the hardcoded initial/welcome tasks – these should NOT be
+// preserved when merging with DB results in fetchInitialData.
+const initialTaskIds = new Set(initialTasks.map(t => t.id));
+
 const calculateNextOccurrence = (currentDate: string, recurrence: Recurrence): Date | null => {
   const date = new Date(currentDate);
   const { frequency, interval, daysOfWeek, dayOfMonth, weekOfMonth, useLastDay } = recurrence;
@@ -365,7 +369,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       supabase.from('tags').select('*')
     ]);
 
-    if (!tasksRes.error) {
+    if (tasksRes.error) {
+      console.error('[fetchInitialData] Failed to fetch tasks:', tasksRes.error);
+    } else {
       const dbTasks = (tasksRes.data || []).map(mapDBToTask);
       const { activeTimerTaskId, tasks: currentTasks } = get();
 
@@ -383,12 +389,32 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         }
         return dt;
       });
-      set({ tasks: mergedTasks });
-    }
-    if (!projectsRes.error) set({ projects: (projectsRes.data || []).map(mapDBToProject) });
-    if (!tagsRes.error) set({ tags: (tagsRes.data || []).map(mapDBToTag) });
 
-    // Try to load timber from session storage if any
+      // Merge locally-added tasks that haven't been synced to DB yet.
+      // If a task exists locally but not in DB (e.g., insert was in-flight),
+      // keep it so it doesn't vanish.
+      const dbTaskIds = new Set(mergedTasks.map(t => t.id));
+      const unsyncedLocalTasks = currentTasks.filter(
+        t => !dbTaskIds.has(t.id) && !initialTaskIds.has(t.id)
+      );
+      if (unsyncedLocalTasks.length > 0) {
+        console.warn('[fetchInitialData] Preserving unsynced local tasks:', unsyncedLocalTasks.map(t => t.title));
+      }
+
+      set({ tasks: [...mergedTasks, ...unsyncedLocalTasks] });
+    }
+    if (projectsRes.error) {
+      console.error('[fetchInitialData] Failed to fetch projects:', projectsRes.error);
+    } else {
+      set({ projects: (projectsRes.data || []).map(mapDBToProject) });
+    }
+    if (tagsRes.error) {
+      console.error('[fetchInitialData] Failed to fetch tags:', tagsRes.error);
+    } else {
+      set({ tags: (tagsRes.data || []).map(mapDBToTag) });
+    }
+
+    // Try to load timer from session storage if any
     get().loadTimerState();
   },
 
@@ -526,10 +552,25 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((state) => ({ tasks: [...state.tasks, newTask] }));
 
     if (user) {
-      await supabase.from('tasks').insert({
+      const { error } = await supabase.from('tasks').insert({
         ...mapTaskToDB(newTask),
         user_id: user.id
       });
+      if (error) {
+        console.error('[addTask] Failed to insert task to Supabase:', error);
+        // Retry once after a short delay
+        setTimeout(async () => {
+          const { error: retryError } = await supabase.from('tasks').insert({
+            ...mapTaskToDB(newTask),
+            user_id: user.id
+          });
+          if (retryError) {
+            console.error('[addTask] Retry also failed:', retryError);
+          } else {
+            console.log('[addTask] Retry succeeded for task:', newTask.title);
+          }
+        }, 2000);
+      }
     }
   },
 
