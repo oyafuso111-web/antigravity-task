@@ -422,7 +422,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   fetchInitialData: async () => {
     const user = await ensureAuthUser(get, set);
-    if (!user) return;
+    if (!user) {
+      console.warn('[fetchInitialData] No authenticated user – skipping fetch');
+      return;
+    }
+    console.log('[fetchInitialData] Fetching data for user:', user.id);
 
     const [tasksRes, projectsRes, tagsRes] = await Promise.all([
       supabase.from('tasks').select('*').order('order', { ascending: true }),
@@ -434,10 +438,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       console.error('[fetchInitialData] Failed to fetch tasks:', tasksRes.error);
     } else {
       const dbTasks = (tasksRes.data || []).map(mapDBToTask);
+      console.log(`[fetchInitialData] DB returned ${dbTasks.length} tasks`);
+
       const { activeTimerTaskId, tasks: currentTasks } = get();
+      console.log(`[fetchInitialData] Local store has ${currentTasks.length} tasks`);
 
       const mergedTasks = dbTasks.map(dt => {
-        // If this task is currently being timed locally, preserve the local time/logs
         if (dt.id === activeTimerTaskId) {
           const localTask = currentTasks.find(t => t.id === activeTimerTaskId);
           if (localTask) {
@@ -463,29 +469,30 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       // Also recover pending tasks from localStorage that aren't in DB yet
       const pendingTasks = getPendingTasks();
       const recoveredTasks: Task[] = [];
+      if (pendingTasks.length > 0) {
+        console.log(`[fetchInitialData] Found ${pendingTasks.length} pending tasks in localStorage`);
+      }
       for (const pt of pendingTasks) {
         if (!dbTaskIds.has(pt.id) && !unsyncedLocalTasks.some(t => t.id === pt.id)) {
-          // Try to insert into Supabase
           const { error } = await supabase.from('tasks').insert({
             ...mapTaskToDB(pt),
             user_id: user.id
           });
           if (error) {
             console.error('[fetchInitialData] Failed to sync pending task:', pt.title, error);
-            // Keep in local state so user doesn't lose it
             recoveredTasks.push(pt);
           } else {
             console.log('[fetchInitialData] Synced pending task to DB:', pt.title);
             removePendingTask(pt.id);
-            // The task is now in DB, add it to merged list
             recoveredTasks.push(pt);
           }
         } else {
-          // Already in DB, remove from pending
           removePendingTask(pt.id);
         }
       }
 
+      const finalCount = mergedTasks.length + unsyncedLocalTasks.length + recoveredTasks.length;
+      console.log(`[fetchInitialData] Final task count: ${finalCount} (db=${mergedTasks.length}, unsynced=${unsyncedLocalTasks.length}, recovered=${recoveredTasks.length})`);
       set({ tasks: [...mergedTasks, ...unsyncedLocalTasks, ...recoveredTasks] });
     }
     if (projectsRes.error) {

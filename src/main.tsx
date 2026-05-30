@@ -17,27 +17,34 @@ Sentry.init({
 });
 
 // ---------------------------------------------------------------------------
-// One-time cleanup: purge the old Service Worker's backgroundSync cache
-// that was intercepting Supabase REST API calls and causing data loss.
+// AGGRESSIVE cleanup: force-unregister ALL service workers and purge all
+// related caches/IndexedDB.  The old SW's backgroundSync was intercepting
+// Supabase REST API calls, causing data inconsistency.
 // ---------------------------------------------------------------------------
 (async () => {
   try {
-    // Delete the Workbox backgroundSync IndexedDB database
+    // 1. Unregister ALL service workers
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        const ok = await reg.unregister();
+        console.log('[sw-cleanup] Unregistered service worker:', ok);
+      }
+    }
+    // 2. Delete Workbox backgroundSync IndexedDB database
     if ('indexedDB' in window) {
       indexedDB.deleteDatabase('workbox-background-sync');
     }
-    // Clear all caches created by the old service worker
+    // 3. Clear ALL caches (not just workbox-related ones)
     if ('caches' in window) {
       const cacheNames = await caches.keys();
       for (const name of cacheNames) {
-        if (name.includes('supabase') || name.includes('workbox')) {
-          await caches.delete(name);
-          console.log('[sw-cleanup] Deleted cache:', name);
-        }
+        await caches.delete(name);
+        console.log('[sw-cleanup] Deleted cache:', name);
       }
     }
   } catch (e) {
-    console.warn('[sw-cleanup] Cache cleanup failed (non-critical):', e);
+    console.warn('[sw-cleanup] Cleanup failed (non-critical):', e);
   }
 })();
 
