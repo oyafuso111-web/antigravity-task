@@ -168,16 +168,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     };
     document.addEventListener('mousedown', handleClickOutside);
 
-    const handleClickOutsideDate = (event: MouseEvent) => {
-      if (dateInputRef.current && !dateInputRef.current.contains(event.target as Node)) {
-        setShowDateInput(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutsideDate);
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('mousedown', handleClickOutsideDate);
     };
   }, []);
 
