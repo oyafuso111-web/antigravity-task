@@ -428,17 +428,47 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
     console.log('[fetchInitialData] Fetching data for user:', user.id);
 
-    const [tasksRes, projectsRes, tagsRes] = await Promise.all([
-      supabase.from('tasks').select('*').order('order', { ascending: true }),
+    // -----------------------------------------------------------------------
+    // Fetch tasks in two batches to avoid the Supabase default 1000-row limit:
+    //   1. ALL incomplete tasks (the user always needs to see these)
+    //   2. Completed tasks (capped at 2000, newest first)
+    // Both batches are sorted by created_at DESC so the newest data is never
+    // cut off by the row limit.
+    // -----------------------------------------------------------------------
+    const [incompleteRes, completedRes, projectsRes, tagsRes] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('completed', false)
+        .order('created_at', { ascending: false })
+        .limit(5000),
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('completed', true)
+        .order('created_at', { ascending: false })
+        .limit(2000),
       supabase.from('projects').select('*'),
       supabase.from('tags').select('*')
     ]);
 
-    if (tasksRes.error) {
-      console.error('[fetchInitialData] Failed to fetch tasks:', tasksRes.error);
+    const taskError = incompleteRes.error || completedRes.error;
+    if (taskError) {
+      console.error('[fetchInitialData] Failed to fetch tasks:', taskError);
     } else {
-      const dbTasks = (tasksRes.data || []).map(mapDBToTask);
-      console.log(`[fetchInitialData] DB returned ${dbTasks.length} tasks`);
+      const rawRows = [
+        ...(incompleteRes.data || []),
+        ...(completedRes.data || [])
+      ];
+      // De-duplicate (in case a task was toggled between queries)
+      const seen = new Set<string>();
+      const uniqueRows = rawRows.filter(r => {
+        if (seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      });
+      const dbTasks = uniqueRows.map(mapDBToTask);
+      console.log(`[fetchInitialData] DB returned ${dbTasks.length} tasks (incomplete=${incompleteRes.data?.length ?? 0}, completed=${completedRes.data?.length ?? 0})`);
 
       const { activeTimerTaskId, tasks: currentTasks } = get();
       console.log(`[fetchInitialData] Local store has ${currentTasks.length} tasks`);
