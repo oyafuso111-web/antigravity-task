@@ -525,7 +525,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
             className="convert-project-btn"
             onClick={() => {
               if (!task) return;
-              if (!window.confirm(`「${task.title}」をプロジェクトに変換しますか？\n\n・タスク名 → プロジェクト名\n・Description → 目標/説明\n・サブタスク → タスクとして作成\n・コメント → プロジェクトコメント\n\n※元のタスクは削除されます`)) return;
+              if (!window.confirm(`「${task.title}」をプロジェクトに変換しますか？\n\n・タスク名 → プロジェクト名\n・Description → 目標/説明\n・サブタスク → タスクとして作成\n・コメント → プロジェクトコメント`)) return;
 
               const newProjectId = crypto.randomUUID();
               const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB', '#F59E0B', '#8B5CF6'];
@@ -559,11 +559,8 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                 });
               });
 
-              // 4. Delete original task
-              deleteTask(taskId);
+              // 4. Navigate to new project
               setSelectedTaskId(null);
-
-              // 5. Navigate to new project
               setActiveProject(newProjectId);
               setActiveTab('list');
             }}
