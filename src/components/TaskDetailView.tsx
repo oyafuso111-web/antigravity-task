@@ -412,6 +412,25 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   }, [newComment, taskId]);
 
   const [newSubtask, setNewSubtask] = useState('');
+
+  // --- IME-safe local state for title and description ---
+  const [localTitle, setLocalTitle] = useState(task?.title || '');
+  const [localDesc, setLocalDesc] = useState(task?.description || '');
+  const isComposingTitle = useRef(false);
+  const isComposingDesc = useRef(false);
+
+  // Sync local state from store when task changes externally (e.g. switching tasks)
+  useEffect(() => {
+    if (!isComposingTitle.current) {
+      setLocalTitle(task?.title || '');
+    }
+  }, [task?.title]);
+
+  useEffect(() => {
+    if (!isComposingDesc.current) {
+      setLocalDesc(task?.description || '');
+    }
+  }, [task?.description]);
   
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateText, setDateText] = useState('');
@@ -450,8 +469,16 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
 
   if (!task) return <div className="task-detail-panel">Task not found</div>;
 
-  const handleUpdateDescription = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateTask(taskId, { description: e.target.value });
+  const flushTitle = (val: string) => {
+    if (val !== task.title) {
+      updateTask(taskId, { title: val });
+    }
+  };
+
+  const flushDesc = (val: string) => {
+    if (val !== task.description) {
+      updateTask(taskId, { description: val });
+    }
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -606,8 +633,21 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
       <div className="detail-body">
         <textarea 
           className="detail-title-input" 
-          value={task.title} 
-          onChange={(e) => { updateTask(taskId, { title: e.target.value }); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+          value={localTitle} 
+          onChange={(e) => {
+            setLocalTitle(e.target.value);
+            e.target.style.height = 'auto';
+            e.target.style.height = e.target.scrollHeight + 'px';
+            if (!isComposingTitle.current) {
+              flushTitle(e.target.value);
+            }
+          }}
+          onCompositionStart={() => { isComposingTitle.current = true; }}
+          onCompositionEnd={(e) => {
+            isComposingTitle.current = false;
+            flushTitle((e.target as HTMLTextAreaElement).value);
+          }}
+          onBlur={(e) => { flushTitle(e.target.value); }}
           onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
           placeholder="Task Title"
           rows={1}
@@ -1034,8 +1074,19 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
           <h3>Description</h3>
           <textarea 
             className="detail-description-area"
-            value={task.description}
-            onChange={handleUpdateDescription}
+            value={localDesc}
+            onChange={(e) => {
+              setLocalDesc(e.target.value);
+              if (!isComposingDesc.current) {
+                flushDesc(e.target.value);
+              }
+            }}
+            onCompositionStart={() => { isComposingDesc.current = true; }}
+            onCompositionEnd={(e) => {
+              isComposingDesc.current = false;
+              flushDesc((e.target as HTMLTextAreaElement).value);
+            }}
+            onBlur={(e) => { flushDesc(e.target.value); }}
             placeholder="Add more detail to this task..."
           />
         </div>
