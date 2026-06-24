@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTaskStore } from '../store/useTaskStore';
 import type { ColumnId } from '../store/useTaskStore';
 import type { Priority, Task } from '../types';
@@ -157,25 +158,68 @@ export const TaskListView: React.FC = () => {
   const [newTaskProjectSearch, setNewTaskProjectSearch] = useState('');
   const [newTaskProjectSelectedIndex, setNewTaskProjectSelectedIndex] = useState(0);
   const newTaskProjectDropdownRef = useRef<HTMLDivElement>(null);
+  const newTaskProjectCellRef = useRef<HTMLDivElement>(null);
+  const newTaskProjectPortalRef = useRef<HTMLDivElement>(null);
+  const [newTaskProjectDropdownPos, setNewTaskProjectDropdownPos] = useState<{top: number; left: number} | null>(null);
 
   const [newTaskTagIds, setNewTaskTagIds] = useState<string[]>([]);
   const [showNewTaskTagDropdown, setShowNewTaskTagDropdown] = useState(false);
   const [newTaskTagSearch, setNewTaskTagSearch] = useState('');
   const [newTaskTagSelectedIndex, setNewTaskTagSelectedIndex] = useState(0);
   const newTaskTagDropdownRef = useRef<HTMLDivElement>(null);
+  const newTaskTagCellRef = useRef<HTMLDivElement>(null);
+  const newTaskTagPortalRef = useRef<HTMLDivElement>(null);
+  const [newTaskTagDropdownPos, setNewTaskTagDropdownPos] = useState<{top: number; left: number} | null>(null);
+
+  // Compute portal position for project dropdown
+  useEffect(() => {
+    if (showNewTaskProjectDropdown && newTaskProjectCellRef.current) {
+      const rect = newTaskProjectCellRef.current.getBoundingClientRect();
+      const dropdownHeight = 260;
+      const spaceAbove = rect.top;
+      if (spaceAbove >= dropdownHeight) {
+        setNewTaskProjectDropdownPos({ top: rect.top - dropdownHeight, left: rect.left });
+      } else {
+        setNewTaskProjectDropdownPos({ top: rect.bottom + 4, left: rect.left });
+      }
+    } else {
+      setNewTaskProjectDropdownPos(null);
+    }
+  }, [showNewTaskProjectDropdown]);
+
+  // Compute portal position for tag dropdown
+  useEffect(() => {
+    if (showNewTaskTagDropdown && newTaskTagCellRef.current) {
+      const rect = newTaskTagCellRef.current.getBoundingClientRect();
+      const dropdownHeight = 260;
+      const spaceAbove = rect.top;
+      if (spaceAbove >= dropdownHeight) {
+        setNewTaskTagDropdownPos({ top: rect.top - dropdownHeight, left: rect.left });
+      } else {
+        setNewTaskTagDropdownPos({ top: rect.bottom + 4, left: rect.left });
+      }
+    } else {
+      setNewTaskTagDropdownPos(null);
+    }
+  }, [showNewTaskTagDropdown]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (newTaskProjectDropdownRef.current && !newTaskProjectDropdownRef.current.contains(e.target as Node)) {
-        setShowNewTaskProjectDropdown(false);
+      const target = e.target as Node;
+      if (showNewTaskProjectDropdown) {
+        const inCell = newTaskProjectCellRef.current?.contains(target);
+        const inPortal = newTaskProjectPortalRef.current?.contains(target);
+        if (!inCell && !inPortal) setShowNewTaskProjectDropdown(false);
       }
-      if (newTaskTagDropdownRef.current && !newTaskTagDropdownRef.current.contains(e.target as Node)) {
-        setShowNewTaskTagDropdown(false);
+      if (showNewTaskTagDropdown) {
+        const inCell = newTaskTagCellRef.current?.contains(target);
+        const inPortal = newTaskTagPortalRef.current?.contains(target);
+        if (!inCell && !inPortal) setShowNewTaskTagDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
+  }, [showNewTaskProjectDropdown, showNewTaskTagDropdown]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -647,7 +691,7 @@ export const TaskListView: React.FC = () => {
                   );
                 case 'project':
                   return (
-                    <div key="project" className="task-cell cell-project" tabIndex={0}
+                    <div key="project" className="task-cell cell-project" tabIndex={0} ref={newTaskProjectCellRef}
                       style={{ width: `${columnWidths.project}px`, minWidth: `${columnWidths.project}px`, maxWidth: `${columnWidths.project}px`, flexShrink: 0, flexGrow: 0, position: 'relative', overflow: 'visible' }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === 'ArrowDown') {
@@ -688,14 +732,15 @@ export const TaskListView: React.FC = () => {
                           ›
                         </button>
 
-                        {showNewTaskProjectDropdown && (
-                          <div className="project-dropdown" style={{
-                            position: 'absolute', bottom: '100%', left: 0, zIndex: 100, // Show above row
+                        {showNewTaskProjectDropdown && newTaskProjectDropdownPos && createPortal(
+                          <div ref={newTaskProjectPortalRef} className="project-dropdown" style={{
+                            position: 'fixed', top: newTaskProjectDropdownPos.top, left: newTaskProjectDropdownPos.left, zIndex: 9999,
                             backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
-                            borderRadius: '6px', padding: '4px', marginBottom: '4px', minWidth: '180px',
-                            boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
-                            maxHeight: '240px', display: 'flex', flexDirection: 'column'
-                          }}>
+                            borderRadius: '6px', padding: '4px', minWidth: '180px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                            maxHeight: '240px', display: 'flex', flexDirection: 'column',
+                            boxSizing: 'border-box'
+                          }} onClick={e => e.stopPropagation()}>
                             <input
                               autoFocus
                               type="text"
@@ -735,7 +780,7 @@ export const TaskListView: React.FC = () => {
                                   setShowNewTaskProjectDropdown(false);
                                   setNewTaskProjectSearch('');
                                   setNewTaskProjectSelectedIndex(0);
-                                  setTimeout(() => addTaskInputRef.current?.focus(), 0); // Focus back to input
+                                  setTimeout(() => addTaskInputRef.current?.focus(), 0);
                                 } else if (e.key === 'Escape') {
                                   setShowNewTaskProjectDropdown(false);
                                 }
@@ -799,7 +844,8 @@ export const TaskListView: React.FC = () => {
                                 </div>
                               )}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </div>
                     </div>
@@ -831,7 +877,7 @@ export const TaskListView: React.FC = () => {
                   );
                 case 'tags':
                   return (
-                    <div key="tags" className="task-cell cell-tags" tabIndex={0}
+                    <div key="tags" className="task-cell cell-tags" tabIndex={0} ref={newTaskTagCellRef}
                       style={{ width: `${columnWidths.tags}px`, minWidth: `${columnWidths.tags}px`, maxWidth: `${columnWidths.tags}px`, flexShrink: 0, flexGrow: 0, position: 'relative', overflow: 'visible' }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === 'ArrowDown') {
@@ -875,14 +921,15 @@ export const TaskListView: React.FC = () => {
                           {newTaskTags.length ? '+' : 'Tags...'}
                         </button>
 
-                        {showNewTaskTagDropdown && (
-                          <div className="tag-dropdown" style={{
-                            position: 'absolute', bottom: '100%', left: 0, zIndex: 100, // Show above row
+                        {showNewTaskTagDropdown && newTaskTagDropdownPos && createPortal(
+                          <div ref={newTaskTagPortalRef} className="tag-dropdown" style={{
+                            position: 'fixed', top: newTaskTagDropdownPos.top, left: newTaskTagDropdownPos.left, zIndex: 9999,
                             backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
-                            borderRadius: '6px', padding: '4px', marginBottom: '4px', minWidth: '180px',
-                            boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
-                            maxHeight: '240px', display: 'flex', flexDirection: 'column'
-                          }}>
+                            borderRadius: '6px', padding: '4px', minWidth: '180px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                            maxHeight: '240px', display: 'flex', flexDirection: 'column',
+                            boxSizing: 'border-box'
+                          }} onClick={e => e.stopPropagation()}>
                             <input
                               autoFocus
                               type="text"
@@ -909,13 +956,11 @@ export const TaskListView: React.FC = () => {
                                     return;
                                   }
                                   if (newTaskTagSelectedIndex < filteredNewTaskTags.length) {
-                                    // Selected existing tag
                                     const existing = filteredNewTaskTags[newTaskTagSelectedIndex];
                                     if (!newTaskTagIds.includes(existing.id)) {
                                       setNewTaskTagIds(prev => [...prev, existing.id]);
                                     }
                                   } else if (newTaskTagSearch.trim()) {
-                                    // Create new tag
                                     const colors = ['#888888', '#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
                                     const color = colors[Math.floor(Math.random() * colors.length)];
                                     const newId = crypto.randomUUID();
@@ -980,7 +1025,8 @@ export const TaskListView: React.FC = () => {
                                 </div>
                               )}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </div>
                     </div>
