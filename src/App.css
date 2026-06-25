@@ -14,7 +14,7 @@
 }
 
 .sidebar {
-  width: 260px;
+  width: 200px;
   background-color: var(--bg-sidebar);
   color: var(--text-sidebar);
   display: flex;

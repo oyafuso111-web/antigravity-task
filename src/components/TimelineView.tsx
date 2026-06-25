@@ -71,7 +71,7 @@ export const TimelineView: React.FC = () => {
   const gridBodyRef = useRef<HTMLDivElement>(null);
 
   const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
-  const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [sidebarWidth, setSidebarWidth] = useState(380);
 
   const handleSidebarResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -211,9 +211,25 @@ export const TimelineView: React.FC = () => {
         projectName: proj?.name || 'プロジェクトなし',
         projectColor: proj?.color || '#9CA3AF',
         tasks: projectMap.get(pId)!.sort((a, b) => {
-          const dA = a.dueDate || '';
-          const dB = b.dueDate || '';
-          return dA.localeCompare(dB);
+          // Match List view default sort: date asc → priority desc → title asc → createdAt asc
+          const priorityOrder: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
+          // Date asc (null last)
+          if (a.dueDate && !b.dueDate) return -1;
+          if (!a.dueDate && b.dueDate) return 1;
+          if (a.dueDate && b.dueDate) {
+            const dA = a.dueDate.slice(0, 10);
+            const dB = b.dueDate.slice(0, 10);
+            const dc = dA.localeCompare(dB);
+            if (dc !== 0) return dc;
+          }
+          // Priority desc
+          const pc = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+          if (pc !== 0) return pc;
+          // Title asc
+          const tc = a.title.localeCompare(b.title, 'ja');
+          if (tc !== 0) return tc;
+          // CreatedAt asc
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
         })
       });
     });
@@ -271,6 +287,29 @@ export const TimelineView: React.FC = () => {
     });
     return counts;
   }, [filteredTasks, dateStrs]);
+
+  // Sum estimated minutes per day
+  const estimatedMinutesByDay = useMemo(() => {
+    const totals: Record<string, number> = {};
+    dateStrs.forEach(d => { totals[d] = 0; });
+    filteredTasks.forEach(t => {
+      const nd = normalizeDateStr(t.dueDate);
+      if (nd && totals[nd] !== undefined) {
+        totals[nd] += (t.estimatedMinutes || 0);
+      }
+    });
+    return totals;
+  }, [filteredTasks, dateStrs]);
+
+  // Format minutes as compact string (e.g. "2h30m", "45m")
+  const formatEstimatedTime = useCallback((minutes: number): string => {
+    if (minutes <= 0) return '';
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0 && m > 0) return `${h}h${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m}m`;
+  }, []);
 
   // Toggle project collapse
   const toggleProject = useCallback((projectId: string) => {
@@ -583,6 +622,9 @@ export const TimelineView: React.FC = () => {
                   {taskCount > 0 && (
                     <span className="tl-day-count">{taskCount}</span>
                   )}
+                  {estimatedMinutesByDay[dateStrs[i]] > 0 && (
+                    <span className="tl-day-estimated">{formatEstimatedTime(estimatedMinutesByDay[dateStrs[i]])}</span>
+                  )}
                 </div>
               );
             })}
@@ -685,6 +727,26 @@ export const TimelineView: React.FC = () => {
                         {!isInRange && effectiveDate && (
                           <span className="tl-out-date-badge">{effectiveDate.replace(/-/g, '/')}</span>
                         )}
+                        <span className="tl-estimated-input-wrapper">
+                          <svg className="tl-estimated-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                          </svg>
+                          <input
+                            type="number"
+                            className="tl-estimated-input"
+                            value={task.estimatedMinutes || ''}
+                            placeholder="—"
+                            min={0}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              updateTask(task.id, { estimatedMinutes: isNaN(val) ? 0 : val });
+                            }}
+                            title="見込み時間（分）"
+                          />
+                          <span className="tl-estimated-unit">m</span>
+                        </span>
                         <span className="tl-hover-actions">
                           <button
                             className="tl-action-btn tl-action-delete"
