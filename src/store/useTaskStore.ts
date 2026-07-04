@@ -86,6 +86,8 @@ interface TaskStore {
   updateProject: (id: string, updates: Partial<Project>) => void;
   deleteProject: (id: string) => void;
   toggleProjectFavorite: (projectId: string) => void;
+  archiveProject: (id: string) => void;
+  unarchiveProject: (id: string) => void;
   addFolder: (name: string) => void;
 
   addTag: (name: string, color: string, id?: string) => void;
@@ -171,6 +173,7 @@ const mapProjectToDB = (p: Partial<Project>) => stripUndefined({
   color: p.color,
   folder_id: p.folderId,
   is_favorite: p.isFavorite,
+  is_archived: p.isArchived,
   created_at: p.createdAt,
   description: p.description,
   comments: p.comments,
@@ -182,6 +185,7 @@ const mapDBToProject = (row: any): Project => ({
   color: row.color,
   folderId: row.folder_id,
   isFavorite: row.is_favorite,
+  isArchived: row.is_archived || false,
   createdAt: row.created_at,
   description: row.description || '',
   comments: row.comments || [],
@@ -1155,6 +1159,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       color,
       folderId,
       isFavorite: false,
+      isArchived: false,
       createdAt: new Date().toISOString()
     };
     set((state) => ({
@@ -1204,6 +1209,20 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       await supabase.from('tasks').update({ project_id: null }).eq('project_id', id);
       await supabase.from('projects').delete().eq('id', id);
     }
+  },
+
+  archiveProject: async (id) => {
+    const { updateProject } = get();
+    await updateProject(id, { isArchived: true });
+    // If the archived project is currently active, switch to inbox
+    if (get().activeProjectId === id) {
+      set({ activeProjectId: 'p1' });
+    }
+  },
+
+  unarchiveProject: async (id) => {
+    const { updateProject } = get();
+    await updateProject(id, { isArchived: false });
   },
 
   addFolder: (name) => set((state) => ({

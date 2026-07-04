@@ -36,8 +36,9 @@ const DroppableProjectItem: React.FC<{
   onToggleFavorite: (e: React.MouseEvent) => void,
   onColorChange: (color: string) => void,
   onDelete: (e: React.MouseEvent) => void,
-  onRename: (newName: string) => void
-}> = ({ project, isActive, onClick, onToggleFavorite, onColorChange, onDelete, onRename }) => {
+  onRename: (newName: string) => void,
+  onArchive?: (e: React.MouseEvent) => void
+}> = ({ project, isActive, onClick, onToggleFavorite, onColorChange, onDelete, onRename, onArchive }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: `project-${project.id}`,
     data: { type: 'project', id: project.id }
@@ -102,6 +103,15 @@ const DroppableProjectItem: React.FC<{
       >
         {project.isFavorite ? '★' : '☆'}
       </button>
+      {onArchive && (
+        <button
+          className="sidebar-archive-btn"
+          onClick={onArchive}
+          title="アーカイブ"
+        >
+          📦
+        </button>
+      )}
       <button
         className="sidebar-delete-btn"
         onClick={onDelete}
@@ -126,6 +136,8 @@ export const Sidebar: React.FC = () => {
     updateTag, 
     deleteTag,
     toggleProjectFavorite,
+    archiveProject,
+    unarchiveProject,
     isMobileSidebarOpen,
     setMobileSidebarOpen
   } = useTaskStore();
@@ -135,6 +147,7 @@ export const Sidebar: React.FC = () => {
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [homeExpanded, setHomeExpanded] = useState(false);
+  const [archivedExpanded, setArchivedExpanded] = useState(false);
 
   const MAX_VISIBLE_PROJECTS = 5;
   const MAX_VISIBLE_TAGS = 5;
@@ -154,12 +167,18 @@ export const Sidebar: React.FC = () => {
   // Sort projects: favorites first, then custom alphanumeric -> kana/kanji -> emoji
   const sortedProjects = useMemo(() => {
     return [...projects]
-      .filter(p => p.id !== 'p1')
+      .filter(p => p.id !== 'p1' && !p.isArchived)
       .sort((a, b) => {
         if (a.isFavorite && !b.isFavorite) return -1;
         if (!a.isFavorite && b.isFavorite) return 1;
         return sortProjectsCustom(a.name, b.name);
       });
+  }, [projects]);
+
+  const archivedProjects = useMemo(() => {
+    return [...projects]
+      .filter(p => p.id !== 'p1' && p.isArchived)
+      .sort((a, b) => sortProjectsCustom(a.name, b.name));
   }, [projects]);
 
   const visibleProjects = projectsExpanded ? sortedProjects : sortedProjects.slice(0, MAX_VISIBLE_PROJECTS);
@@ -339,6 +358,10 @@ export const Sidebar: React.FC = () => {
                 }
               }}
               onRename={(newName) => updateProject(project.id, { name: newName })}
+              onArchive={(e) => {
+                e.stopPropagation();
+                archiveProject(project.id);
+              }}
             />
           ))}
         </ul>
@@ -407,6 +430,35 @@ export const Sidebar: React.FC = () => {
             onClick={() => handleNavClick('completed')} 
           />
         </ul>
+        {archivedProjects.length > 0 && (
+          <>
+            <button className="expand-btn archived-toggle" onClick={() => setArchivedExpanded(!archivedExpanded)}>
+              <span className={`expand-icon ${archivedExpanded ? 'expanded' : ''}`}>▼</span>
+              📦 アーカイブ済みプロジェクト ({archivedProjects.length})
+            </button>
+            {archivedExpanded && (
+              <ul className="nav-list archived-project-list">
+                {archivedProjects.map(project => (
+                  <li
+                    key={project.id}
+                    className={`nav-item project-item archived-project-item ${activeProjectId === project.id ? 'active' : ''}`}
+                    onClick={() => handleNavClick(project.id)}
+                  >
+                    <span className="color-dot" style={{ backgroundColor: project.color, opacity: 0.5 }}></span>
+                    <span className="project-name-text archived-name">{project.name}</span>
+                    <button
+                      className="sidebar-unarchive-btn"
+                      onClick={(e) => { e.stopPropagation(); unarchiveProject(project.id); }}
+                      title="アーカイブ解除"
+                    >
+                      ↩
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
       </div>
     </aside>
     </>

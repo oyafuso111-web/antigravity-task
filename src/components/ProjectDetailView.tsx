@@ -14,7 +14,9 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
     addProjectComment,
     updateProjectComment,
     deleteProjectComment,
-    setProjectDetailOpen
+    setProjectDetailOpen,
+    archiveProject,
+    unarchiveProject
   } = useTaskStore();
 
   const project = projects.find(p => p.id === projectId);
@@ -22,6 +24,11 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
   const [newComment, setNewComment] = useState('');
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
+
+  // Editable project name state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [localName, setLocalName] = useState(project?.name || '');
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   // Local state for description with debounced save
   const [localDescription, setLocalDescription] = useState(project?.description || '');
@@ -169,17 +176,72 @@ export const ProjectDetailView: React.FC<Props> = ({ projectId }) => {
   const comments = project.comments || [];
   const createdDate = new Date(project.createdAt);
 
+  // Sync localName when project changes externally
+  useEffect(() => {
+    if (!isEditingName) {
+      setLocalName(project.name || '');
+    }
+  }, [project.name, isEditingName]);
+
+  const handleNameDoubleClick = () => {
+    setLocalName(project.name || '');
+    setIsEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 0);
+  };
+
+  const handleNameSave = () => {
+    const trimmed = localName.trim();
+    if (trimmed && trimmed !== project.name) {
+      updateProject(projectId, { name: trimmed });
+    } else {
+      setLocalName(project.name || '');
+    }
+    setIsEditingName(false);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      setLocalName(project.name || '');
+      setIsEditingName(false);
+    }
+  };
+
   return (
     <div className="project-detail-panel" onClick={(e) => e.stopPropagation()}>
       <div className="project-detail-header">
-        <button className="close-btn" onClick={() => setProjectDetailOpen(false)}>✕ Close</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button className="close-btn" onClick={() => setProjectDetailOpen(false)}>✕ Close</button>
+          {project.isArchived && (
+            <span className="archive-badge">📦 アーカイブ済み</span>
+          )}
+        </div>
+        <button
+          className={`archive-action-btn ${project.isArchived ? 'unarchive' : 'archive'}`}
+          onClick={() => project.isArchived ? unarchiveProject(project.id) : archiveProject(project.id)}
+        >
+          {project.isArchived ? '↩ アーカイブ解除' : '📦 アーカイブ'}
+        </button>
       </div>
 
       <div className="project-detail-body">
         {/* Project Name */}
         <div className="project-detail-name">
           <span className="project-color-dot" style={{ backgroundColor: project.color }} />
-          <h2>{project.name}</h2>
+          {isEditingName ? (
+            <input
+              ref={nameInputRef}
+              className="project-name-edit-input"
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onBlur={handleNameSave}
+              onKeyDown={handleNameKeyDown}
+            />
+          ) : (
+            <h2 onDoubleClick={handleNameDoubleClick} title="ダブルクリックで編集">{project.name}</h2>
+          )}
         </div>
 
         {/* Progress Bar */}

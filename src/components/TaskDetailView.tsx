@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import type { Priority, Task, Recurrence, TimeBlock } from '../types';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
@@ -418,6 +418,21 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   const [localDesc, setLocalDesc] = useState(task?.description || '');
   const isComposingTitle = useRef(false);
   const isComposingDesc = useRef(false);
+  const descTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Auto-resize description textarea to fit content
+  const autoResizeDescTextarea = useCallback(() => {
+    const el = descTextareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = Math.max(100, el.scrollHeight) + 'px';
+    }
+  }, []);
+
+  // Auto-resize when localDesc changes (including external sync)
+  useEffect(() => {
+    autoResizeDescTextarea();
+  }, [localDesc, autoResizeDescTextarea]);
 
   // Sync local state from store when task changes externally (e.g. switching tasks)
   useEffect(() => {
@@ -1073,6 +1088,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
         <div className="detail-section">
           <h3>Description</h3>
           <textarea 
+            ref={descTextareaRef}
             className="detail-description-area"
             value={localDesc}
             onChange={(e) => {

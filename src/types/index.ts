@@ -71,6 +71,7 @@ export interface Project {
   name: string;
   color: string;
   isFavorite: boolean;
+  isArchived?: boolean;
   createdAt: string;
   description?: string;
   comments?: ProjectComment[];

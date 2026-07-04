@@ -381,6 +381,15 @@ export const TaskListView: React.FC = () => {
 
       if (t.completed) return false;
 
+      // Hide tasks from archived projects in smart views
+      const archivedProjectIds = new Set(
+        projects.filter(p => p.isArchived).map(p => p.id)
+      );
+      const isSmartView = activeProjectId?.startsWith('p-') || activeProjectId === 'p1';
+      if (isSmartView && t.projectId && archivedProjectIds.has(t.projectId)) {
+        return false;
+      }
+
       const getSafeDate = (dateInput: string) => {
         if (dateInput.length === 10) {
           const [y, m, d] = dateInput.split('-').map(Number);

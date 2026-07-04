@@ -73,6 +73,20 @@
   font-weight: 700;
   margin: 0;
   color: var(--text-primary);
+  cursor: default;
+}
+
+.project-name-edit-input {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--accent-color, #6c5ce7);
+  border-radius: 6px;
+  padding: 2px 8px;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
 }
 
 /* ─── Stats Cards - 3 in a row ─── */
@@ -208,6 +222,52 @@
   color: var(--text-secondary);
   padding-top: 8px;
   border-top: 1px solid var(--border-color);
+}
+
+/* ─── Archive Badge & Button ─── */
+.archive-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(232, 154, 45, 0.15);
+  color: #E89A2D;
+  white-space: nowrap;
+}
+
+.archive-action-btn {
+  padding: 5px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.archive-action-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.archive-action-btn.unarchive {
+  background: rgba(37, 194, 109, 0.1);
+  color: #25C26D;
+  border-color: rgba(37, 194, 109, 0.3);
+}
+
+.archive-action-btn.unarchive:hover {
+  background: rgba(37, 194, 109, 0.2);
+  border-color: #25C26D;
+  color: #25C26D;
 }
 
 @media (max-width: 768px) {
