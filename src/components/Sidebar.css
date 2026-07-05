@@ -57,6 +57,7 @@
 
 .project-item {
   gap: 8px;
+  position: relative;
 }
 
 .project-name-text {
@@ -64,6 +65,32 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+/* Always-visible favorite badge */
+.fav-badge {
+  color: #f5a623;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.project-item:hover .fav-badge {
+  display: none;
+}
+
+/* Action buttons group - hidden by default, shown on hover */
+.project-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.project-item:hover .project-actions {
+  display: flex;
 }
 
 .color-dot {
@@ -104,17 +131,11 @@
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0 2px;
-  opacity: 0;
-  transition: opacity 0.2s, color 0.2s;
+  transition: color 0.2s;
   flex-shrink: 0;
 }
 
-.project-item:hover .fav-btn {
-  opacity: 1;
-}
-
 .fav-btn.is-fav {
-  opacity: 1;
   color: #f5a623;
 }
 
@@ -135,7 +156,13 @@
   border-radius: 3px;
 }
 
-.nav-item:hover .sidebar-delete-btn {
+/* Tags: show delete on hover */
+.nav-item:hover > .sidebar-delete-btn {
+  opacity: 0.6;
+}
+
+/* Inside project-actions: always visible (container handles show/hide) */
+.project-actions .sidebar-delete-btn {
   opacity: 0.6;
 }
 
@@ -224,18 +251,14 @@
   cursor: pointer;
   font-size: 0.7rem;
   padding: 2px 4px;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity 0.2s, color 0.2s, transform 0.2s;
   flex-shrink: 0;
   border-radius: 3px;
 }
 
-.project-item:hover .sidebar-archive-btn {
-  opacity: 0.6;
-}
-
 .sidebar-archive-btn:hover {
-  opacity: 1 !important;
+  opacity: 1;
   color: var(--brand-solid);
   transform: scale(1.15);
 }

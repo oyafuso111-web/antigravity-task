@@ -96,29 +96,34 @@ const DroppableProjectItem: React.FC<{
           {project.name}
         </span>
       )}
-      <button 
-        className={`fav-btn ${project.isFavorite ? 'is-fav' : ''}`}
-        onClick={onToggleFavorite}
-        title={project.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-      >
-        {project.isFavorite ? '★' : '☆'}
-      </button>
-      {onArchive && (
-        <button
-          className="sidebar-archive-btn"
-          onClick={onArchive}
-          title="アーカイブ"
-        >
-          📦
-        </button>
+      {project.isFavorite && (
+        <span className="fav-badge" title="お気に入り">★</span>
       )}
-      <button
-        className="sidebar-delete-btn"
-        onClick={onDelete}
-        title="Delete project"
-      >
-        ✕
-      </button>
+      <span className="project-actions">
+        <button 
+          className={`fav-btn ${project.isFavorite ? 'is-fav' : ''}`}
+          onClick={onToggleFavorite}
+          title={project.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          {project.isFavorite ? '★' : '☆'}
+        </button>
+        {onArchive && (
+          <button
+            className="sidebar-archive-btn"
+            onClick={onArchive}
+            title="アーカイブ"
+          >
+            📦
+          </button>
+        )}
+        <button
+          className="sidebar-delete-btn"
+          onClick={onDelete}
+          title="Delete project"
+        >
+          ✕
+        </button>
+      </span>
     </li>
   );
 };
