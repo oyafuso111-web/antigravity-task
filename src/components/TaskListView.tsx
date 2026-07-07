@@ -152,6 +152,7 @@ export const TaskListView: React.FC = () => {
   const [newTaskPriority, setNewTaskPriority] = useState<Priority>('none');
   const [newTaskTagsText, setNewTaskTagsText] = useState('');
   const [newTaskDateText, setNewTaskDateText] = useState('');
+  const [newTaskEstimatedMinutes, setNewTaskEstimatedMinutes] = useState(0);
   const addTaskInputRef = useRef<HTMLInputElement>(null);
 
   const [showNewTaskProjectDropdown, setShowNewTaskProjectDropdown] = useState(false);
@@ -284,7 +285,7 @@ export const TaskListView: React.FC = () => {
       projectId: newTaskProjectId,
       completed: false,
       priority: newTaskPriority,
-      estimatedMinutes: 0,
+      estimatedMinutes: newTaskEstimatedMinutes,
       tagIds: newTaskTagIds, // Use populated array
       dueDate: finalDueDate,
       homeBucket: finalHomeBucket
@@ -293,6 +294,7 @@ export const TaskListView: React.FC = () => {
     setNewTaskDateText('');
     setNewTaskTagIds([]);
     setNewTaskTagsText(''); // Keep around for compatibility if needed elsewhere
+    setNewTaskEstimatedMinutes(0);
     setNewTaskPriority('none');
     setNewTaskProjectId((activeProjectId === 'p1' || activeProjectId?.startsWith('p-') || activeProjectId?.startsWith('t-')) ? null : activeProjectId);
   };
@@ -300,6 +302,9 @@ export const TaskListView: React.FC = () => {
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       if (e.nativeEvent.isComposing) return;
+      // select要素ではEnterでドロップダウンを開閉するため、タスク確定しない
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'SELECT') return;
       if (!newTaskTitle.trim()) return;
       e.preventDefault();
       handleAddTask();
@@ -680,7 +685,7 @@ export const TaskListView: React.FC = () => {
 
         {/* Add Task Input (now inside scrollable list) */}
         {activeProjectId !== 'completed' && (
-          <div className={`task-row add-task-row ${newTaskTitle || newTaskDateText || newTaskTagsText || newTaskProjectId || newTaskPriority !== 'none' || showNewTaskProjectDropdown || showNewTaskTagDropdown ? 'has-input' : ''}`}>
+          <div className={`task-row add-task-row ${newTaskTitle || newTaskDateText || newTaskTagsText || newTaskProjectId || newTaskPriority !== 'none' || newTaskEstimatedMinutes > 0 || showNewTaskProjectDropdown || showNewTaskTagDropdown ? 'has-input' : ''}`}>
             {columnOrder.map(colId => {
               switch (colId) {
                 case 'name':
@@ -731,6 +736,7 @@ export const TaskListView: React.FC = () => {
                         </span>
                         <button
                           className="project-change-btn"
+                          tabIndex={-1}
                           style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', padding: '2px 4px', flexShrink: 0, borderRadius: '3px' }}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -907,6 +913,7 @@ export const TaskListView: React.FC = () => {
                             {tag.name}
                             <button
                               className="tag-delete-btn"
+                              tabIndex={-1}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setNewTaskTagIds(prev => prev.filter(id => id !== tag.id));
@@ -920,6 +927,7 @@ export const TaskListView: React.FC = () => {
                         ))}
                         <button
                           className="add-tag-btn"
+                          tabIndex={-1}
                           style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.875rem', padding: '0 4px', opacity: newTaskTags.length ? 1 : 0.6 }}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1050,8 +1058,41 @@ export const TaskListView: React.FC = () => {
                       />
                     </div>
                   );
+                case 'estimatedMinutes':
+                  return (
+                    <div key="estimatedMinutes" className="task-cell cell-estimatedMinutes"
+                      style={{ width: `${columnWidths.estimatedMinutes}px`, minWidth: `${columnWidths.estimatedMinutes}px`, maxWidth: `${columnWidths.estimatedMinutes}px`, flexShrink: 0, flexGrow: 0 }}
+                    >
+                      <input
+                        type="number"
+                        className="estimated-minutes-input"
+                        value={newTaskEstimatedMinutes === 0 ? '' : newTaskEstimatedMinutes}
+                        onChange={e => {
+                          const val = parseInt(e.target.value, 10);
+                          setNewTaskEstimatedMinutes(isNaN(val) ? 0 : val);
+                        }}
+                        placeholder="0"
+                        onKeyDown={handleInputKeyDown}
+                        style={{
+                          width: '60px',
+                          padding: '2px 4px',
+                          fontSize: '0.75rem',
+                          outline: 'none',
+                          border: '1px solid transparent',
+                          borderRadius: '4px',
+                          background: 'transparent',
+                          color: 'var(--text-primary)',
+                          textAlign: 'center'
+                        }}
+                        onFocus={e => e.currentTarget.style.border = '1px solid var(--border-color)'}
+                        onBlur={e => e.currentTarget.style.border = '1px solid transparent'}
+                        title="見込み時間（分）"
+                        min="0"
+                      />
+                    </div>
+                  );
                 default:
-                  return <div key={colId} className={`task-cell cell-${colId}`}></div>;
+                  return <div key={colId} className={`task-cell cell-${colId}`} style={{ width: `${columnWidths[colId]}px`, minWidth: `${columnWidths[colId]}px`, maxWidth: `${columnWidths[colId]}px`, flexShrink: 0, flexGrow: 0 }}></div>;
               }
             })}
           </div>
