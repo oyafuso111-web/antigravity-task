@@ -238,17 +238,12 @@ function App() {
     return () => worker?.terminate();
   }, [activeTimerTaskId, tickTimer]);
 
-  useEffect(() => {
-    // Attempt to pause and save timer on window close
-    const handleUnload = () => {
-      const { activeTimerTaskId, pauseTimer } = useTaskStore.getState();
-      if (activeTimerTaskId) {
-        pauseTimer();
-      }
-    };
-    window.addEventListener('beforeunload', handleUnload);
-    return () => window.removeEventListener('beforeunload', handleUnload);
-  }, []);
+  // NOTE: beforeunload handler for pauseTimer was intentionally removed.
+  // beforeunload cannot await async functions, so pauseTimer() could not
+  // complete DB writes. Worse, calling it here created TimeBlocks that were
+  // duplicated when loadTimerState restored the timer on next page load.
+  // Timer state is saved to sessionStorage by startTimer, so loadTimerState
+  // will restore it naturally on next page load.
   useEffect(() => {
     // Auto dark mode logic based on time (after 18:00 or before 06:00)
     const checkTimeForDarkMode = () => {

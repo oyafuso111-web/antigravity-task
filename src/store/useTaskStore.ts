@@ -113,6 +113,9 @@ const getLocalDateStr = (d: Date = new Date()) => {
   return `${y}-${m}-${day}`;
 };
 
+// Re-entrancy guard for pauseTimer to prevent duplicate TimeBlock creation
+let _pauseTimerRunning = false;
+
 // Mapping Helpers
 // Strip undefined values to prevent Supabase from overwriting existing data with null
 const stripUndefined = (obj: Record<string, unknown>): Record<string, unknown> => {
@@ -1327,14 +1330,46 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   pauseTimer: async () => {
-    const user = await ensureAuthUser(get, set);
-    const { activeTimerTaskId, tasks, timerStartTimestamp } = get();
-    if (activeTimerTaskId) {
-      const task = tasks.find(t => t.id === activeTimerTaskId);
-      if (task && timerStartTimestamp) {
+    // Re-entrancy guard: prevent duplicate TimeBlock creation
+    if (_pauseTimerRunning) return;
+    _pauseTimerRunning = true;
+
+    try {
+      // Capture current state BEFORE clearing
+      const snapshot = get();
+      const capturedTaskId = snapshot.activeTimerTaskId;
+      const capturedStartTimestamp = snapshot.timerStartTimestamp;
+
+      // Clear timer state FIRST (before async work) to prevent re-entrant calls
+      set(() => ({
+        activeTimerTaskId: null,
+        timerStartTimestamp: null,
+        timerAccumulatedAtStart: null,
+        lastTimerTick: null
+      }));
+      sessionStorage.removeItem('activeTimerTaskId');
+      sessionStorage.removeItem('timerStartTimestamp');
+      sessionStorage.removeItem('timerAccumulatedAtStart');
+
+      if (!capturedTaskId || !capturedStartTimestamp) {
+        return;
+      }
+
+      const user = await ensureAuthUser(get, set);
+      const { tasks } = get();
+      const task = tasks.find(t => t.id === capturedTaskId);
+
+      if (task) {
+        // Dedup: skip if a block with the same startTime already exists
+        const existingBlocks = task.timeBlocks || [];
+        const isDuplicate = existingBlocks.some(b => b.startTime === capturedStartTimestamp);
+        if (isDuplicate) {
+          return;
+        }
+
         // Capture final delta
         const now = Date.now();
-        const elapsed = Math.floor((now - timerStartTimestamp) / 1000);
+        const elapsed = Math.floor((now - capturedStartTimestamp) / 1000);
         const todayStr = getLocalDateStr(new Date());
 
         const finalDailyLogs = { ...(task.dailyLogs || {}) };
@@ -1344,14 +1379,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         // Create a new TimeBlock for this session
         const newTimeBlock: TimeBlock = {
           id: crypto.randomUUID(),
-          startTime: timerStartTimestamp,
+          startTime: capturedStartTimestamp,
           endTime: now,
         };
-        const updatedTimeBlocks = [...(task.timeBlocks || []), newTimeBlock];
+        const updatedTimeBlocks = [...existingBlocks, newTimeBlock];
 
         // Update local state
         set((state) => ({
-          tasks: state.tasks.map(t => t.id === activeTimerTaskId
+          tasks: state.tasks.map(t => t.id === capturedTaskId
             ? { ...t, accumulatedTime: finalAcc, dailyLogs: finalDailyLogs, timeBlocks: updatedTimeBlocks }
             : t
           )
@@ -1362,19 +1397,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             accumulated_time: Math.max(0, finalAcc),
             daily_logs: finalDailyLogs,
             time_blocks: updatedTimeBlocks
-          }).eq('id', activeTimerTaskId);
+          }).eq('id', capturedTaskId);
         }
       }
+    } finally {
+      _pauseTimerRunning = false;
     }
-    set(() => ({
-      activeTimerTaskId: null,
-      timerStartTimestamp: null,
-      timerAccumulatedAtStart: null,
-      lastTimerTick: null
-    }));
-    sessionStorage.removeItem('activeTimerTaskId');
-    sessionStorage.removeItem('timerStartTimestamp');
-    sessionStorage.removeItem('timerAccumulatedAtStart');
   },
 
   tickTimer: () => set({ timerTick: Date.now() }),
