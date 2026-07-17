@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import type { Priority, Task, Recurrence, TimeBlock } from '../types';
 import { parseDateText, formatDateDisplay } from '../utils/dateParser';
+import { sortProjectsCustom } from '../utils/sortUtils';
 import { DatePickerCalendar } from './DatePickerCalendar';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -413,6 +414,12 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
 
   const [newSubtask, setNewSubtask] = useState('');
 
+  // --- Searchable project dropdown state ---
+  const [projectSearch, setProjectSearch] = useState('');
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [projectSelectedIndex, setProjectSelectedIndex] = useState(0);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
+
   // --- IME-safe local state for title and description ---
   const [localTitle, setLocalTitle] = useState(task?.title || '');
   const [localDesc, setLocalDesc] = useState(task?.description || '');
@@ -539,10 +546,29 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
     setSpecificRecurrence({ daysOfWeek: newDays });
   };
 
-  // Sort projects alphabetically, blank last
+  // Sort projects using sortProjectsCustom (same as task list)
   const sortedProjects = [...projects]
     .filter(p => p.id !== 'p1')
-    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    .sort((a, b) => sortProjectsCustom(a.name, b.name));
+
+  const filteredDetailProjects = sortedProjects.filter(p =>
+    p.name.toLowerCase().includes(projectSearch.toLowerCase())
+  );
+
+  const currentProject = projects.find(p => p.id === task.projectId);
+
+  // Close project dropdown on outside click
+  useEffect(() => {
+    if (!showProjectDropdown) return;
+    const handleClick = (e: MouseEvent) => {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+        setShowProjectDropdown(false);
+        setProjectSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showProjectDropdown]);
 
   return (
     <div className="task-detail-panel">
@@ -671,16 +697,148 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
         <div className="detail-fields">
           <div className="field-group">
             <label>Project</label>
-            <div className="field-value">
-               <select 
-                 value={task.projectId || ''} 
-                 onChange={(e) => handleBatchMove(e.target.value || null)}
-               >
-                 {sortedProjects.map(p => (
-                   <option key={p.id} value={p.id}>{p.name}</option>
-                 ))}
-                 <option value="">No Project</option>
-               </select>
+            <div className="field-value" ref={projectDropdownRef} style={{ position: 'relative' }}>
+              <div
+                className="detail-project-selector"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '6px', borderRadius: '4px', border: '1px solid var(--border-color)',
+                  background: 'var(--bg-app)', cursor: 'pointer', minHeight: '32px'
+                }}
+                onClick={() => {
+                  setShowProjectDropdown(!showProjectDropdown);
+                  setProjectSearch('');
+                  setProjectSelectedIndex(0);
+                }}
+              >
+                {currentProject ? (
+                  <>
+                    <span style={{ backgroundColor: currentProject.color, width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0 }}></span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{currentProject.name}</span>
+                  </>
+                ) : (
+                  <span style={{ color: 'var(--text-secondary)' }}>No Project</span>
+                )}
+                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>▼</span>
+              </div>
+              {showProjectDropdown && (
+                <div className="project-dropdown" style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                  backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)',
+                  borderRadius: '6px', padding: '4px', marginTop: '4px', minWidth: '180px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  maxHeight: '240px', display: 'flex', flexDirection: 'column'
+                }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search or create..."
+                    value={projectSearch}
+                    onChange={(e) => {
+                      setProjectSearch(e.target.value);
+                      setProjectSelectedIndex(0);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault(); e.stopPropagation();
+                        setProjectSelectedIndex(prev => Math.max(0, prev - 1));
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault(); e.stopPropagation();
+                        const maxIdx = projectSearch.trim() && !projects.find(p => p.name.toLowerCase() === projectSearch.toLowerCase().trim()) ? filteredDetailProjects.length + 1 : Math.max(0, filteredDetailProjects.length);
+                        setProjectSelectedIndex(prev => Math.min(maxIdx, prev + 1));
+                      } else if (e.key === 'Enter') {
+                        if (e.nativeEvent.isComposing) return;
+                        e.preventDefault(); e.stopPropagation();
+                        if (projectSelectedIndex === 0) {
+                          handleBatchMove(null);
+                        } else if (projectSelectedIndex - 1 < filteredDetailProjects.length) {
+                          handleBatchMove(filteredDetailProjects[projectSelectedIndex - 1].id);
+                        } else if (projectSearch.trim()) {
+                          const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                          const color = colors[Math.floor(Math.random() * colors.length)];
+                          const newId = crypto.randomUUID();
+                          addProject(projectSearch.trim(), color, newId);
+                          handleBatchMove(newId);
+                        }
+                        setShowProjectDropdown(false);
+                        setProjectSearch('');
+                        setProjectSelectedIndex(0);
+                      } else if (e.key === 'Escape') {
+                        setShowProjectDropdown(false);
+                        setProjectSearch('');
+                      }
+                    }}
+                    style={{
+                      width: '100%', padding: '6px 8px', border: 'none',
+                      borderBottom: '1px solid var(--border-color)',
+                      background: 'transparent', color: 'var(--text-primary)',
+                      fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box'
+                    }}
+                  />
+                  <div style={{ overflowY: 'auto', flex: 1 }}>
+                    <div
+                      className="project-dropdown-item"
+                      style={{
+                        padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
+                        backgroundColor: projectSelectedIndex === 0 ? 'var(--bg-hover)' : 'transparent'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBatchMove(null);
+                        setShowProjectDropdown(false);
+                        setProjectSearch('');
+                      }}
+                      onMouseEnter={() => setProjectSelectedIndex(0)}
+                    >
+                      <span style={{ backgroundColor: 'transparent', border: '1px dashed var(--border-color)', width: '8px', height: '8px', borderRadius: '50%' }}></span>
+                      No Project
+                    </div>
+                    {filteredDetailProjects.map((p, idx) => (
+                      <div
+                        key={p.id} className="project-dropdown-item"
+                        style={{
+                          padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px',
+                          backgroundColor: projectSelectedIndex === idx + 1 ? 'var(--bg-hover)' : 'transparent'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBatchMove(p.id);
+                          setShowProjectDropdown(false);
+                          setProjectSearch('');
+                        }}
+                        onMouseEnter={() => setProjectSelectedIndex(idx + 1)}
+                      >
+                        <span style={{ backgroundColor: p.color, width: '8px', height: '8px', borderRadius: '50%' }}></span>
+                        {p.name}
+                      </div>
+                    ))}
+                    {projectSearch.trim() && !projects.find(p => p.name.toLowerCase() === projectSearch.toLowerCase().trim()) && (
+                      <div
+                        className="project-dropdown-item create-new"
+                        style={{
+                          padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                          borderRadius: '4px', borderTop: '1px solid var(--border-color)', marginTop: '4px', color: 'var(--brand-solid)', fontWeight: 500,
+                          backgroundColor: projectSelectedIndex === filteredDetailProjects.length + 1 ? 'var(--bg-hover)' : 'transparent'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const colors = ['#F06A6A', '#25C26D', '#6A44E1', '#E89A2D', '#2D9CDB'];
+                          const color = colors[Math.floor(Math.random() * colors.length)];
+                          const newId = crypto.randomUUID();
+                          addProject(projectSearch.trim(), color, newId);
+                          handleBatchMove(newId);
+                          setShowProjectDropdown(false);
+                          setProjectSearch('');
+                        }}
+                        onMouseEnter={() => setProjectSelectedIndex(filteredDetailProjects.length + 1)}
+                      >
+                        + "{projectSearch.trim()}" を新規作成
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
