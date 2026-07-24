@@ -314,6 +314,7 @@ export const Topbar: React.FC = () => {
                       className={`search-result-item ${idx === searchHighlightIndex ? 'highlighted' : ''}`}
                       onClick={() => handleSearchResultSelect(result)}
                       onMouseEnter={() => setSearchHighlightIndex(idx)}
+                      title={p.name}
                     >
                       <span className="search-result-kind-icon">📁</span>
                       <span className="search-result-title">
@@ -342,6 +343,7 @@ export const Topbar: React.FC = () => {
                       className={`search-result-item ${idx === searchHighlightIndex ? 'highlighted' : ''}`}
                       onClick={() => handleSearchResultSelect(result)}
                       onMouseEnter={() => setSearchHighlightIndex(idx)}
+                      title={`${task.title}${task.dueDate ? `  📅 ${task.dueDate.slice(0, 10).replace(/-/g, '/')}` : ''}${taskProject ? `  📁 ${taskProject.name}` : ''}`}
                     >
                       <span className="search-result-kind-icon" style={{ opacity: task.completed ? 0.5 : 0.7 }}>{task.completed ? '✅' : '☐'}</span>
                       <span
@@ -350,6 +352,19 @@ export const Topbar: React.FC = () => {
                       >
                         {task.title}
                       </span>
+                      {task.dueDate && (
+                        <span style={{
+                          fontSize: '0.7rem',
+                          padding: '1px 6px',
+                          borderRadius: '3px',
+                          backgroundColor: 'var(--bg-hover)',
+                          color: 'var(--text-secondary)',
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          📅 {task.dueDate.slice(0, 10).replace(/-/g, '/')}
+                        </span>
+                      )}
                       {matchField && (
                         <span style={{
                           fontSize: '0.65rem',
