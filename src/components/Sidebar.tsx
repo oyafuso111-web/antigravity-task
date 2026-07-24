@@ -8,18 +8,35 @@ import './Sidebar.css';
 const WEEKDAY_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
 
 // Droppable sidebar item for smart views and home buckets
+// Supports both @dnd-kit (from List view) and native HTML5 D&D (from Timeline view)
 const DroppableNavItem: React.FC<{ id: string, label: string, isActive: boolean, onClick: () => void, icon?: string }> = ({ id, label, isActive, onClick, icon }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: `smartview-${id}`,
     data: { type: 'smartview', id }
   });
+  const [nativeDragOver, setNativeDragOver] = React.useState(false);
+  const highlighted = isOver || nativeDragOver;
 
   return (
     <li 
       ref={setNodeRef}
-      className={`nav-item ${isActive ? 'active' : ''} ${isOver ? 'drag-over' : ''}`}
+      className={`nav-item ${isActive ? 'active' : ''} ${highlighted ? 'drag-over' : ''}`}
       onClick={onClick}
-      style={{ backgroundColor: isOver ? 'var(--bg-hover)' : undefined }}
+      style={{ backgroundColor: highlighted ? 'var(--bg-hover)' : undefined }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setNativeDragOver(true); }}
+      onDragEnter={(e) => { e.preventDefault(); setNativeDragOver(true); }}
+      onDragLeave={(e) => {
+        const related = e.relatedTarget as Node | null;
+        if (!related || !e.currentTarget.contains(related)) setNativeDragOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setNativeDragOver(false);
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId) {
+          useTaskStore.getState().moveToSmartView(taskId, id);
+        }
+      }}
     >
       {icon && <span className="nav-icon">{icon}</span>}
       {label}
@@ -43,6 +60,8 @@ const DroppableProjectItem: React.FC<{
     id: `project-${project.id}`,
     data: { type: 'project', id: project.id }
   });
+  const [nativeDragOver, setNativeDragOver] = useState(false);
+  const highlighted = isOver || nativeDragOver;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
@@ -50,9 +69,23 @@ const DroppableProjectItem: React.FC<{
   return (
     <li 
       ref={setNodeRef}
-      className={`nav-item project-item ${isActive ? 'active' : ''} ${isOver ? 'drag-over' : ''}`}
+      className={`nav-item project-item ${isActive ? 'active' : ''} ${highlighted ? 'drag-over' : ''}`}
       onClick={onClick}
-      style={{ backgroundColor: isOver ? 'var(--bg-hover)' : undefined }}
+      style={{ backgroundColor: highlighted ? 'var(--bg-hover)' : undefined }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setNativeDragOver(true); }}
+      onDragEnter={(e) => { e.preventDefault(); setNativeDragOver(true); }}
+      onDragLeave={(e) => {
+        const related = e.relatedTarget as Node | null;
+        if (!related || !e.currentTarget.contains(related)) setNativeDragOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setNativeDragOver(false);
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId) {
+          useTaskStore.getState().moveTask(taskId, project.id);
+        }
+      }}
     >
       <label className="color-picker-label" title="Change color" onClick={(e) => e.stopPropagation()}>
         <span className="color-dot" style={{ backgroundColor: project.color }}></span>

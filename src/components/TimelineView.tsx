@@ -705,7 +705,7 @@ export const TimelineView: React.FC = () => {
 
                   return (
                     <div key={task.id} data-task-id={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompleting ? 'completing-animation' : ''}`}>
-                      <div className="tl-task-label" title={task.title}>
+                      <div className="tl-task-label" title={task.title} draggable onDragStart={(e) => handleDragStart(e, task.id)} onDragEnd={handleDragEnd}>
                         <button
                           className="tl-complete-btn"
                           onClick={(e) => handleCompleteTask(e, task.id)}
