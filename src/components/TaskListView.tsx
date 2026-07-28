@@ -5,6 +5,7 @@ import type { ColumnId } from '../store/useTaskStore';
 import type { Priority, Task } from '../types';
 import { TaskItem } from './TaskItem';
 import { parseDateText } from '../utils/dateParser';
+import { isIMEActive } from '../utils/imeState';
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -150,6 +151,7 @@ export const TaskListView: React.FC = () => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskProjectId, setNewTaskProjectId] = useState<string | null>(null);
   const [newTaskPriority, setNewTaskPriority] = useState<Priority>('none');
+  const [selectPriorityConfirmed, setSelectPriorityConfirmed] = useState(false);
   const [newTaskTagsText, setNewTaskTagsText] = useState('');
   const [newTaskDateText, setNewTaskDateText] = useState('');
   const [newTaskEstimatedMinutes, setNewTaskEstimatedMinutes] = useState(0);
@@ -301,10 +303,18 @@ export const TaskListView: React.FC = () => {
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      if (e.nativeEvent.isComposing) return;
-      // select要素ではEnterでドロップダウンを開閉するため、タスク確定しない
+      if (isIMEActive() || e.nativeEvent.isComposing) return;
       const target = e.target as HTMLElement;
-      if (target.tagName === 'SELECT') return;
+      // select要素: 1回目のEnterで優先度確定、2回目のEnterでタスク登録
+      if (target.tagName === 'SELECT') {
+        if (!selectPriorityConfirmed) {
+          // 1回目: 優先度確定（ブラウザのネイティブ動作でドロップダウンが閉じる）
+          setSelectPriorityConfirmed(true);
+          return;
+        }
+        // 2回目: フラグリセットしてタスク登録へ進む
+        setSelectPriorityConfirmed(false);
+      }
       if (!newTaskTitle.trim()) return;
       e.preventDefault();
       handleAddTask();
@@ -315,7 +325,7 @@ export const TaskListView: React.FC = () => {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
 
     // Don't interfere during IME composition
-    if (e.nativeEvent.isComposing) return;
+    if (isIMEActive() || e.nativeEvent.isComposing) return;
 
     // Avoid hijacking native text cursor movement unless at boundaries
     const target = e.target as HTMLElement;
@@ -366,7 +376,7 @@ export const TaskListView: React.FC = () => {
   // Ctrl+Enter global shortcut
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
     // Don't interfere during IME composition
-    if (e.isComposing) return;
+    if (isIMEActive() || e.isComposing) return;
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       addTaskInputRef.current?.focus();
@@ -775,7 +785,7 @@ export const TaskListView: React.FC = () => {
                                   const maxIdx = newTaskProjectSearch.trim() && !projects.find(p => p.name.toLowerCase() === newTaskProjectSearch.toLowerCase().trim()) ? filteredNewTaskProjects.length + 1 : Math.max(0, filteredNewTaskProjects.length);
                                   setNewTaskProjectSelectedIndex(prev => Math.min(maxIdx, prev + 1));
                                 } else if (e.key === 'Enter') {
-                                  if (e.nativeEvent.isComposing) return;
+                                  if (isIMEActive() || e.nativeEvent.isComposing) return;
                                   e.preventDefault(); e.stopPropagation();
                                   if (filteredNewTaskProjects.length === 0 && !newTaskProjectSearch.trim()) {
                                     setShowNewTaskProjectDropdown(false);
@@ -870,7 +880,10 @@ export const TaskListView: React.FC = () => {
                     <div key="priority" className="task-cell cell-priority">
                       <select
                         value={newTaskPriority}
-                        onChange={(e) => setNewTaskPriority(e.target.value as Priority)}
+                        onChange={(e) => {
+                          setNewTaskPriority(e.target.value as Priority);
+                          setSelectPriorityConfirmed(false);
+                        }}
                         onKeyDown={handleInputKeyDown}
                         style={{
                           width: '100%', background: 'transparent', border: '1px solid transparent',
@@ -966,7 +979,7 @@ export const TaskListView: React.FC = () => {
                                   const maxIdx = newTaskTagSearch.trim() && !safeTags.find(t => t.name.toLowerCase() === newTaskTagSearch.toLowerCase().trim()) ? filteredNewTaskTags.length : Math.max(0, filteredNewTaskTags.length - 1);
                                   setNewTaskTagSelectedIndex(prev => Math.min(maxIdx, prev + 1));
                                 } else if (e.key === 'Enter') {
-                                  if (e.nativeEvent.isComposing) return;
+                                  if (isIMEActive() || e.nativeEvent.isComposing) return;
                                   e.preventDefault(); e.stopPropagation();
                                   if (filteredNewTaskTags.length === 0 && !newTaskTagSearch.trim()) {
                                     setShowNewTaskTagDropdown(false);

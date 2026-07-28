@@ -26,6 +26,7 @@ import {
 import type { DragEndEvent, KeyboardSensorOptions } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import './App.css';
+import { isIMEActive, initIMEListeners } from './utils/imeState';
 
 // Custom keyboard sensor that ignores events originating from form inputs
 // to prevent IME space-key conversion from triggering drag-and-drop
@@ -36,7 +37,8 @@ class SafeKeyboardSensor extends KeyboardSensor {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (event: React.KeyboardEvent, options: KeyboardSensorOptions, context: any) => {
       // Don't activate drag during IME composition (e.g. Space for kanji conversion)
-      if (event.nativeEvent?.isComposing || (event.nativeEvent as KeyboardEvent)?.isComposing) {
+      // Use global IME tracker for reliability (React synthetic event isComposing is unreliable)
+      if (isIMEActive()) {
         return false;
       }
       const target = event.target as HTMLElement;
@@ -86,6 +88,9 @@ function App() {
   }, [activeProjectId]);
 
   useEffect(() => {
+    // Initialize global IME composition listeners
+    initIMEListeners();
+
     // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
