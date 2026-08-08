@@ -1170,7 +1170,21 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }));
 
     if (user) {
-      await supabase.from('projects').insert({ ...mapProjectToDB(newProject), user_id: user.id });
+      const { error } = await supabase.from('projects').insert({ ...mapProjectToDB(newProject), user_id: user.id });
+      if (error) {
+        console.error('[addProject] Failed to insert project to Supabase:', error);
+        // Retry once after a short delay
+        setTimeout(async () => {
+          const retryUser = await ensureAuthUser(get, set);
+          if (!retryUser) return;
+          const { error: retryError } = await supabase.from('projects').insert({ ...mapProjectToDB(newProject), user_id: retryUser.id });
+          if (retryError) {
+            console.error('[addProject] Retry also failed:', retryError);
+          } else {
+            console.log('[addProject] Retry succeeded for project:', newProject.name);
+          }
+        }, 2000);
+      }
     }
   },
 
