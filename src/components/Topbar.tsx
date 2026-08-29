@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { addDays, isToday, isTomorrow, isBefore, startOfDay, parseISO } from 'date-fns';
-import type { Task, Project } from '../types';
+import type { Task, Project, Priority } from '../types';
 import './Topbar.css';
 
 type SearchResult =
@@ -9,11 +9,19 @@ type SearchResult =
   | { kind: 'project'; project: Project };
 
 export const Topbar: React.FC = () => {
-  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, user, signInWithGoogle, showCompleted, toggleShowCompleted, isProjectDetailOpen, setProjectDetailOpen } = useTaskStore();
+  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, selectedTaskId, setSelectedTaskId, user, signInWithGoogle, showCompleted, toggleShowCompleted, isProjectDetailOpen, setProjectDetailOpen } = useTaskStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Add Task Modal state
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalDueDate, setModalDueDate] = useState('');
+  const [modalPriority, setModalPriority] = useState<Priority>('none');
+  const [modalEstimatedMinutes, setModalEstimatedMinutes] = useState<number>(0);
+  const modalTitleRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const getPageTitle = () => {
@@ -136,6 +144,10 @@ export const Topbar: React.FC = () => {
       setSearchQuery('');
       setShowSearchDropdown(false);
       setTimelineJumpTaskId(task.id);
+      // If detail panel is open, switch it to the selected task
+      if (selectedTaskId) {
+        setSelectedTaskId(task.id);
+      }
       return;
     }
 
@@ -144,6 +156,11 @@ export const Topbar: React.FC = () => {
     setActiveTab('list');
     setSearchQuery('');
     setShowSearchDropdown(false);
+
+    // If detail panel is open, switch it to the selected task
+    if (selectedTaskId) {
+      setSelectedTaskId(task.id);
+    }
 
     // Highlight after a brief delay so the view renders first
     setTimeout(() => {
@@ -189,43 +206,57 @@ export const Topbar: React.FC = () => {
     }
   };
 
-  const handleGlobalAddTask = () => {
-    const title = window.prompt('Enter new task title:');
-    if (title && title.trim()) {
-      const now = new Date();
-      const getLocalDateStr = (d: Date) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      };
+  const openAddTaskModal = () => {
+    const now = new Date();
+    const getLocalDateStr = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
 
-      let dueDate: string | null = null;
-      if (activeProjectId === 'p-today') {
-        dueDate = getLocalDateStr(now);
-      } else if (activeProjectId === 'p-tomorrow') {
-        dueDate = getLocalDateStr(addDays(now, 1));
-      } else if (activeProjectId === 'p-dayafter') {
-        dueDate = getLocalDateStr(addDays(now, 2));
-      } else if (activeProjectId === 'p-dayafter2') {
-        dueDate = getLocalDateStr(addDays(now, 3));
-      } else if (activeProjectId === 'p-thisweek') {
-        dueDate = getLocalDateStr(now);
-      } else if (activeProjectId === 'p-nextweek') {
-        dueDate = getLocalDateStr(addDays(now, 7));
-      }
+    // Pre-fill date based on current view
+    let defaultDate = '';
+    if (activeProjectId === 'p-today') defaultDate = getLocalDateStr(now);
+    else if (activeProjectId === 'p-tomorrow') defaultDate = getLocalDateStr(addDays(now, 1));
+    else if (activeProjectId === 'p-dayafter') defaultDate = getLocalDateStr(addDays(now, 2));
+    else if (activeProjectId === 'p-dayafter2') defaultDate = getLocalDateStr(addDays(now, 3));
+    else if (activeProjectId === 'p-thisweek') defaultDate = getLocalDateStr(now);
+    else if (activeProjectId === 'p-nextweek') defaultDate = getLocalDateStr(addDays(now, 7));
 
-      addTask({
-        title: title.trim(),
-        projectId: (activeProjectId === 'p1' || activeProjectId?.startsWith('p-')) ? null : activeProjectId,
-        completed: false,
-        priority: 'none',
-        tagIds: [],
-        dueDate: dueDate,
-        homeBucket: dueDate ? null : 'inbox',
-      });
-    }
+    setModalTitle('');
+    setModalDueDate(defaultDate);
+    setModalPriority('none');
+    setModalEstimatedMinutes(0);
+    setShowAddTaskModal(true);
+    setTimeout(() => modalTitleRef.current?.focus(), 50);
   };
+
+  const handleModalSubmit = useCallback(() => {
+    if (!modalTitle.trim()) return;
+    const dueDate = modalDueDate || null;
+
+    let homeBucket: 'inbox' | 'memo' | 'waiting' | 'wont-do' | 'do-later' | null = null;
+    if (!dueDate) {
+      if (activeProjectId === 'p-memo') homeBucket = 'memo';
+      else if (activeProjectId === 'p-waiting') homeBucket = 'waiting';
+      else if (activeProjectId === 'p-wont-do') homeBucket = 'wont-do';
+      else if (activeProjectId === 'p-do-later') homeBucket = 'do-later';
+      else if (activeProjectId === 'p1') homeBucket = 'inbox';
+    }
+
+    addTask({
+      title: modalTitle.trim(),
+      projectId: (activeProjectId === 'p1' || activeProjectId?.startsWith('p-') || activeProjectId?.startsWith('t-')) ? null : activeProjectId,
+      completed: false,
+      priority: modalPriority,
+      estimatedMinutes: modalEstimatedMinutes || 0,
+      tagIds: [],
+      dueDate,
+      homeBucket,
+    });
+    setShowAddTaskModal(false);
+  }, [modalTitle, modalDueDate, modalPriority, modalEstimatedMinutes, activeProjectId, addTask]);
 
   return (
     <header className="topbar">
@@ -234,8 +265,8 @@ export const Topbar: React.FC = () => {
         <div className="tabs">
           <button className={`tab ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>List</button>
           <button className={`tab ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}>Calendar</button>
-          <button className={`tab ${activeTab === 'calendar2' ? 'active' : ''}`} onClick={() => setActiveTab('calendar2')}>Time Tracker</button>
           <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>Timeline</button>
+          <button className={`tab ${activeTab === 'calendar2' ? 'active' : ''}`} onClick={() => setActiveTab('calendar2')}>Time Tracker</button>
           <button className={`tab ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>Reports</button>
         </div>
       </div>
@@ -399,7 +430,7 @@ export const Topbar: React.FC = () => {
           )}
         </div>
 
-        <button className="brand-bg brand-btn" onClick={handleGlobalAddTask}>+ Add Task</button>
+        <button className="brand-bg brand-btn" onClick={openAddTaskModal}>+ Add Task</button>
         {user ? (
           <div className="user-avatar logged-in" onClick={() => setSettingsOpen(true)} title="Settings & Sync" style={{ cursor: 'pointer', padding: 0, overflow: 'hidden' }}>
             <img src={user.user_metadata.avatar_url} alt="avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
@@ -410,6 +441,185 @@ export const Topbar: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Add Task Modal */}
+      {showAddTaskModal && (
+        <div
+          className="add-task-modal-overlay"
+          onClick={() => setShowAddTaskModal(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(2px)',
+          }}
+        >
+          <div
+            className="add-task-modal"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setShowAddTaskModal(false);
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                handleModalSubmit();
+              }
+            }}
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '24px',
+              width: '460px',
+              maxWidth: '90vw',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>新規タスク作成</h3>
+
+            {/* Title */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>タスク名 *</label>
+              <input
+                ref={modalTitleRef}
+                type="text"
+                value={modalTitle}
+                onChange={e => setModalTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    handleModalSubmit();
+                  }
+                }}
+                placeholder="タスクのタイトルを入力..."
+                style={{
+                  padding: '10px 12px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-app)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  transition: 'border-color 0.15s',
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--brand-solid)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+              />
+            </div>
+
+            {/* Row: Due Date + Priority */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>期日</label>
+                <input
+                  type="date"
+                  value={modalDueDate}
+                  onChange={e => setModalDueDate(e.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-app)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--brand-solid)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+                />
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>優先度</label>
+                <select
+                  value={modalPriority}
+                  onChange={e => setModalPriority(e.target.value as Priority)}
+                  style={{
+                    padding: '8px 10px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    backgroundColor: modalPriority === 'none' ? 'var(--bg-app)' : `var(--priority-${modalPriority})`,
+                    color: modalPriority === 'none' ? 'var(--text-primary)' : 'white',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--brand-solid)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+                >
+                  <option value="none" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-surface)' }}>—</option>
+                  <option value="1st" style={{ color: 'white', backgroundColor: 'var(--priority-1st)' }}>1st</option>
+                  <option value="quick" style={{ color: 'white', backgroundColor: 'var(--priority-quick)' }}>すぐ終わる</option>
+                  <option value="high" style={{ color: 'white', backgroundColor: 'var(--priority-high)' }}>High</option>
+                  <option value="mid" style={{ color: 'white', backgroundColor: 'var(--priority-mid)' }}>Mid</option>
+                  <option value="low" style={{ color: 'white', backgroundColor: 'var(--priority-low)' }}>Low</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Estimated Minutes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>見込み時間（分）</label>
+              <input
+                type="number"
+                min={0}
+                value={modalEstimatedMinutes || ''}
+                onChange={e => setModalEstimatedMinutes(parseInt(e.target.value, 10) || 0)}
+                placeholder="0"
+                style={{
+                  padding: '8px 10px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-app)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  width: '120px',
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--brand-solid)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+              />
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+              <button
+                onClick={() => setShowAddTaskModal(false)}
+                style={{
+                  padding: '8px 18px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >キャンセル</button>
+              <button
+                onClick={handleModalSubmit}
+                disabled={!modalTitle.trim()}
+                style={{
+                  padding: '8px 24px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: modalTitle.trim() ? 'var(--brand-solid)' : 'var(--border-color)',
+                  color: 'white',
+                  fontSize: '0.85rem',
+                  cursor: modalTitle.trim() ? 'pointer' : 'not-allowed',
+                  fontWeight: 700,
+                  transition: 'opacity 0.15s',
+                }}
+              >作成</button>
+            </div>
+
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textAlign: 'right', marginTop: '-8px' }}>
+              Enter で作成 ・ Esc でキャンセル
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

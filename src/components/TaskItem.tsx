@@ -29,6 +29,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     pauseTimer,
     columnOrder,
     columnWidths,
+    selectedTaskId,
     setSelectedTaskId,
     selectedTaskIds,
     toggleTaskSelection,
@@ -248,6 +249,10 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     } else {
       clearSelection();
       toggleTaskSelection(task.id, false);
+      // If the detail panel is already open, switch it to the clicked task
+      if (selectedTaskId) {
+        setSelectedTaskId(task.id);
+      }
     }
   };
 

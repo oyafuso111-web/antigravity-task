@@ -305,14 +305,14 @@ export const TaskListView: React.FC = () => {
     if (e.key === 'Enter') {
       if (isIMEActive() || e.nativeEvent.isComposing) return;
       const target = e.target as HTMLElement;
-      // select要素: 1回目のEnterで優先度確定、2回目のEnterでタスク登録
+      // select要素: onChangeで優先度が選択されたらフラグがtrueになる
+      // true → タスク登録へ進む, false → ブラウザのドロップダウン操作に任せる
       if (target.tagName === 'SELECT') {
         if (!selectPriorityConfirmed) {
-          // 1回目: 優先度確定（ブラウザのネイティブ動作でドロップダウンが閉じる）
-          setSelectPriorityConfirmed(true);
+          // ドロップダウン操作中（表示・選択）: ブラウザに任せる
           return;
         }
-        // 2回目: フラグリセットしてタスク登録へ進む
+        // 選択済み: フラグリセットしてタスク登録へ進む
         setSelectPriorityConfirmed(false);
       }
       if (!newTaskTitle.trim()) return;
@@ -882,7 +882,7 @@ export const TaskListView: React.FC = () => {
                         value={newTaskPriority}
                         onChange={(e) => {
                           setNewTaskPriority(e.target.value as Priority);
-                          setSelectPriorityConfirmed(false);
+                          setSelectPriorityConfirmed(true);
                         }}
                         onKeyDown={handleInputKeyDown}
                         style={{

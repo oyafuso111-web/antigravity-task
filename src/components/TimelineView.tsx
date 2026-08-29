@@ -18,7 +18,7 @@ import {
 } from 'date-fns';
 import './TimelineView.css';
 
-type ViewMode = 'weekly' | 'monthly';
+type ViewMode = 'weekly' | 'biweekly' | 'monthly';
 
 const getPriorityColor = (p: Priority) => {
   if (p === '1st') return '#E03E3E';
@@ -105,12 +105,17 @@ export const TimelineView: React.FC = () => {
       start.setHours(0, 0, 0, 0);
       if (viewMode === 'weekly') {
         end = addDays(start, 6);
+      } else if (viewMode === 'biweekly') {
+        end = addDays(start, 13);
       } else {
         end = addDays(start, 30);
       }
     } else if (viewMode === 'weekly') {
       start = startOfWeek(currentDate, { weekStartsOn: 1 });
       end = endOfWeek(currentDate, { weekStartsOn: 1 });
+    } else if (viewMode === 'biweekly') {
+      start = startOfWeek(currentDate, { weekStartsOn: 1 });
+      end = endOfWeek(addWeeks(currentDate, 1), { weekStartsOn: 1 });
     } else {
       start = startOfMonth(currentDate);
       end = endOfMonth(currentDate);
@@ -125,7 +130,7 @@ export const TimelineView: React.FC = () => {
     if (todayStartMode) {
       return `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`;
     }
-    if (viewMode === 'weekly') {
+    if (viewMode === 'weekly' || viewMode === 'biweekly') {
       return `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`;
     }
     return format(currentDate, 'MMMM yyyy');
@@ -133,8 +138,8 @@ export const TimelineView: React.FC = () => {
 
   // Navigation
   const goToday = () => { setTodayStartMode(false); setCurrentDate(new Date()); };
-  const goPrev = () => { setTodayStartMode(false); setCurrentDate(d => viewMode === 'weekly' ? subWeeks(d, 1) : subMonths(d, 1)); };
-  const goNext = () => { setTodayStartMode(false); setCurrentDate(d => viewMode === 'weekly' ? addWeeks(d, 1) : addMonths(d, 1)); };
+  const goPrev = () => { setTodayStartMode(false); setCurrentDate(d => viewMode === 'weekly' ? subWeeks(d, 1) : viewMode === 'biweekly' ? subWeeks(d, 2) : subMonths(d, 1)); };
+  const goNext = () => { setTodayStartMode(false); setCurrentDate(d => viewMode === 'weekly' ? addWeeks(d, 1) : viewMode === 'biweekly' ? addWeeks(d, 2) : addMonths(d, 1)); };
 
   // 当日起点: toggle today-start mode & reschedule overdue tasks to today
   const handleTodayStart = useCallback(() => {
@@ -359,13 +364,15 @@ export const TimelineView: React.FC = () => {
     const taskId = e.dataTransfer.getData('text/plain');
     if (taskId) {
       const updates: Partial<Task> = { dueDate: dateStr };
-      // If dropped on a different project row, also move the project
+      // If dropped on a different project row, confirm before moving the project
       if (projectId !== undefined) {
         const task = tasks.find(t => t.id === taskId);
         const currentProjectId = task?.projectId || '__no_project__';
         if (currentProjectId !== projectId) {
-          const newProjectId = projectId === '__no_project__' ? null : projectId;
-          updates.projectId = newProjectId;
+          if (window.confirm('プロジェクトも変更してよいですか？')) {
+            const newProjectId = projectId === '__no_project__' ? null : projectId;
+            updates.projectId = newProjectId;
+          }
         }
       }
       updateTask(taskId, updates);
@@ -555,6 +562,12 @@ export const TimelineView: React.FC = () => {
               Week
             </button>
             <button
+              className={`tl-mode-btn ${viewMode === 'biweekly' ? 'active' : ''}`}
+              onClick={() => setViewMode('biweekly')}
+            >
+              2Week
+            </button>
+            <button
               className={`tl-mode-btn ${viewMode === 'monthly' ? 'active' : ''}`}
               onClick={() => setViewMode('monthly')}
             >
@@ -617,7 +630,7 @@ export const TimelineView: React.FC = () => {
                   onDragLeave={handleDragLeaveCell}
                   onDrop={(e) => handleDropOnCell(e, dateStrs[i])}
                 >
-                  <span className="tl-day-name">{format(day, viewMode === 'monthly' ? 'E' : 'EEE')}</span>
+                  <span className="tl-day-name">{format(day, viewMode === 'weekly' ? 'EEE' : 'E')}</span>
                   <span className={`tl-day-num ${todayFlag ? 'today-num' : ''}`}>{format(day, 'd')}</span>
                   {taskCount > 0 && (
                     <span className="tl-day-count">{taskCount}</span>
@@ -798,7 +811,7 @@ export const TimelineView: React.FC = () => {
                                   onDragEnd={handleDragEnd}
                                   title={`${task.title}\n期日: ${dayStr.replace(/-/g, '/')}\nドラッグで移動`}
                                 >
-                                  <span className="tl-chip-text">{viewMode === 'monthly' ? '' : task.title}</span>
+                                  <span className="tl-chip-text">{viewMode === 'weekly' ? task.title : ''}</span>
                                 </div>
                               )}
                             </div>
