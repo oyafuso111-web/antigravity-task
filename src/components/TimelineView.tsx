@@ -56,15 +56,14 @@ const normalizeDateStr = (d: string | null): string | null => {
 };
 
 export const TimelineView: React.FC = () => {
-  const { tasks, projects, updateTask, addTask, toggleTaskCompletion, deleteTask, setSelectedTaskId, timelineJumpTaskId, setTimelineJumpTaskId } = useTaskStore();
+  const { tasks, projects, tags, updateTask, addTask, toggleTaskCompletion, deleteTask, setSelectedTaskId, timelineJumpTaskId, setTimelineJumpTaskId, sortColumn, sortDirection, secondarySortColumn, secondarySortDirection } = useTaskStore();
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [todayStartMode, setTodayStartMode] = useState(false);
   const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dropTargetDateStr, setDropTargetDateStr] = useState<string | null>(null);
-  const [dropTargetProjectId, setDropTargetProjectId] = useState<string | null>(null);
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+
   const [searchQuery, setSearchQuery] = useState('');
   const [jumpHighlightTaskId, setJumpHighlightTaskId] = useState<string | null>(null);
   const [recentlyDroppedTaskId, setRecentlyDroppedTaskId] = useState<string | null>(null);
@@ -189,58 +188,112 @@ export const TimelineView: React.FC = () => {
     });
   }, [tasks, filterProjectId]);
 
-  // Group tasks by project
-  const projectGroups = useMemo(() => {
-    const groups: { projectId: string; projectName: string; projectColor: string; tasks: Task[] }[] = [];
-    const projectMap = new Map<string, Task[]>();
+  // Sort tasks matching TaskListView order (same sort config + tag grouping in comparator)
+  const sortedTasks = useMemo(() => {
+    const sorted = [...filteredTasks];
 
-    filteredTasks.forEach(t => {
-      const pId = t.projectId || '__no_project__';
-      if (!projectMap.has(pId)) projectMap.set(pId, []);
-      projectMap.get(pId)!.push(t);
-    });
+    // Helper: get first tag name for sort grouping
+    const getFirstTagName = (task: Task): string => {
+      const taskTagIds = task.tagIds || [];
+      if (taskTagIds.length === 0) return '';
+      const tag = tags.find(t => t.id === taskTagIds[0]);
+      return tag?.name || '';
+    };
 
-    // Sort projects: named projects first, then no-project
-    const sortedKeys = Array.from(projectMap.keys()).sort((a, b) => {
-      if (a === '__no_project__') return 1;
-      if (b === '__no_project__') return -1;
-      const pA = projects.find(p => p.id === a);
-      const pB = projects.find(p => p.id === b);
-      return sortProjectsCustom(pA?.name || '', pB?.name || '');
-    });
+    // Tag comparison helper: same tag → adjacent, no tag → after tagged
+    const compareByTag = (a: Task, b: Task): number => {
+      const aTag = getFirstTagName(a);
+      const bTag = getFirstTagName(b);
+      if (aTag === bTag) return 0;
+      if (!aTag && bTag) return 1;
+      if (aTag && !bTag) return -1;
+      return aTag.localeCompare(bTag, 'ja');
+    };
 
-    sortedKeys.forEach(pId => {
-      const proj = pId === '__no_project__' ? null : projects.find(p => p.id === pId);
-      groups.push({
-        projectId: pId,
-        projectName: proj?.name || 'プロジェクトなし',
-        projectColor: proj?.color || '#9CA3AF',
-        tasks: projectMap.get(pId)!.sort((a, b) => {
-          // Match List view default sort: date asc → priority desc → title asc → createdAt asc
-          const priorityOrder: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
-          // Date asc (null last)
-          if (a.dueDate && !b.dueDate) return -1;
-          if (!a.dueDate && b.dueDate) return 1;
-          if (a.dueDate && b.dueDate) {
-            const dA = a.dueDate.slice(0, 10);
-            const dB = b.dueDate.slice(0, 10);
-            const dc = dA.localeCompare(dB);
-            if (dc !== 0) return dc;
+    if (sortColumn && sortDirection) {
+      // User-chosen sort (same as TaskListView)
+      const getComparison = (col: string, dir: string, a: Task, b: Task) => {
+        if (!col || !dir) return 0;
+        let cmp = 0;
+        switch (col) {
+          case 'name':
+            cmp = a.title.localeCompare(b.title, 'ja');
+            break;
+          case 'project': {
+            const pA = projects.find(p => p.id === a.projectId)?.name || '';
+            const pB = projects.find(p => p.id === b.projectId)?.name || '';
+            cmp = sortProjectsCustom(pA, pB);
+            break;
           }
-          // Priority desc
-          const pc = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
-          if (pc !== 0) return pc;
-          // Title asc
-          const tc = a.title.localeCompare(b.title, 'ja');
-          if (tc !== 0) return tc;
-          // CreatedAt asc
-          return (a.createdAt || '').localeCompare(b.createdAt || '');
-        })
-      });
-    });
+          case 'priority': {
+            const order: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
+            cmp = (order[a.priority] || 0) - (order[b.priority] || 0);
+            break;
+          }
+          case 'date':
+            if (!a.dueDate) cmp = 1;
+            else if (!b.dueDate) cmp = -1;
+            else {
+              const dA = a.dueDate.slice(0, 10);
+              const dB = b.dueDate.slice(0, 10);
+              cmp = dA.localeCompare(dB);
+            }
+            break;
+          case 'estimatedMinutes':
+            cmp = (a.estimatedMinutes || 0) - (b.estimatedMinutes || 0);
+            break;
+          case 'createdAt':
+            cmp = (a.createdAt || '').localeCompare(b.createdAt || '');
+            break;
+          case 'time':
+            cmp = a.accumulatedTime - b.accumulatedTime;
+            break;
+          default:
+            cmp = 0;
+        }
+        return dir === 'asc' ? cmp : -cmp;
+      };
 
-    return groups;
-  }, [filteredTasks, projects]);
+      sorted.sort((a, b) => {
+        let cmp = getComparison(sortColumn, sortDirection, a, b);
+        if (cmp === 0 && secondarySortColumn && secondarySortDirection) {
+          cmp = getComparison(secondarySortColumn, secondarySortDirection, a, b);
+        }
+        if (cmp === 0) cmp = compareByTag(a, b);
+        return cmp;
+      });
+    } else {
+      // Default sort: date asc → priority desc → project name asc → tag group → createdAt asc
+      const priorityOrder: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
+      sorted.sort((a, b) => {
+        if (a.dueDate && !b.dueDate) return -1;
+        if (!a.dueDate && b.dueDate) return 1;
+        if (a.dueDate && b.dueDate) {
+          const dA = a.dueDate.slice(0, 10);
+          const dB = b.dueDate.slice(0, 10);
+          const dc = dA.localeCompare(dB);
+          if (dc !== 0) return dc;
+        }
+        const pc = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+        if (pc !== 0) return pc;
+        // Project name asc (null project goes last)
+        const hasProjectA = !!a.projectId;
+        const hasProjectB = !!b.projectId;
+        if (hasProjectA && !hasProjectB) return -1;
+        if (!hasProjectA && hasProjectB) return 1;
+        const pA = projects.find(p => p.id === a.projectId)?.name || '';
+        const pB = projects.find(p => p.id === b.projectId)?.name || '';
+        const projCmp = sortProjectsCustom(pA, pB);
+        if (projCmp !== 0) return projCmp;
+        // Tag group: same tag → adjacent
+        const tc = compareByTag(a, b);
+        if (tc !== 0) return tc;
+        return (a.createdAt || '').localeCompare(b.createdAt || '');
+      });
+    }
+
+    return sorted;
+  }, [filteredTasks, projects, tags, sortColumn, sortDirection, secondarySortColumn, secondarySortDirection]);
 
   // Tasks without due date (for separate section) — only show uncompleted
   const unscheduledTasks = useMemo(() => {
@@ -316,18 +369,7 @@ export const TimelineView: React.FC = () => {
     return `${m}m`;
   }, []);
 
-  // Toggle project collapse
-  const toggleProject = useCallback((projectId: string) => {
-    setCollapsedProjects(prev => {
-      const next = new Set(prev);
-      if (next.has(projectId)) {
-        next.delete(projectId);
-      } else {
-        next.add(projectId);
-      }
-      return next;
-    });
-  }, []);
+
 
   // ─── HTML5 Drag & Drop handlers ───
   const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
@@ -348,41 +390,27 @@ export const TimelineView: React.FC = () => {
     setDropTargetDateStr(null);
   }, []);
 
-  const handleDragOverCell = useCallback((e: React.DragEvent, dateStr: string, projectId?: string) => {
+  const handleDragOverCell = useCallback((e: React.DragEvent, dateStr: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDropTargetDateStr(dateStr);
-    if (projectId !== undefined) setDropTargetProjectId(projectId);
   }, []);
 
   const handleDragLeaveCell = useCallback(() => {
     // Don't clear immediately - let DragOver of next cell handle it
   }, []);
 
-  const handleDropOnCell = useCallback((e: React.DragEvent, dateStr: string, projectId?: string) => {
+  const handleDropOnCell = useCallback((e: React.DragEvent, dateStr: string) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('text/plain');
     if (taskId) {
-      const updates: Partial<Task> = { dueDate: dateStr };
-      // If dropped on a different project row, confirm before moving the project
-      if (projectId !== undefined) {
-        const task = tasks.find(t => t.id === taskId);
-        const currentProjectId = task?.projectId || '__no_project__';
-        if (currentProjectId !== projectId) {
-          if (window.confirm('プロジェクトも変更してよいですか？')) {
-            const newProjectId = projectId === '__no_project__' ? null : projectId;
-            updates.projectId = newProjectId;
-          }
-        }
-      }
-      updateTask(taskId, updates);
+      updateTask(taskId, { dueDate: dateStr });
       setRecentlyDroppedTaskId(taskId);
       setTimeout(() => setRecentlyDroppedTaskId(null), 1500);
     }
     setDragTaskId(null);
     setDropTargetDateStr(null);
-    setDropTargetProjectId(null);
-  }, [updateTask, tasks]);
+  }, [updateTask]);
 
   // Get effective date for rendering (while dragging)
   const getEffectiveDate = useCallback((task: Task): string | null => {
@@ -455,16 +483,7 @@ export const TimelineView: React.FC = () => {
 
     const taskDateStr = normalizeDateStr(task.dueDate);
 
-    // Expand the project group if it's collapsed
-    const taskProjectId = task.projectId || '__no_project__';
-    setCollapsedProjects(prev => {
-      if (prev.has(taskProjectId)) {
-        const next = new Set(prev);
-        next.delete(taskProjectId);
-        return next;
-      }
-      return prev;
-    });
+
 
     // Check if the task date is in the current view range
     const isInCurrentRange = taskDateStr && dateStrs.includes(taskDateStr);
@@ -615,7 +634,7 @@ export const TimelineView: React.FC = () => {
               <rect x="3" y="14" width="7" height="7" />
               <rect x="14" y="14" width="7" height="7" />
             </svg>
-            プロジェクト / タスク
+            タスク
           </div>
           <div className="tl-day-headers">
             {days.map((day, i) => {
@@ -646,7 +665,7 @@ export const TimelineView: React.FC = () => {
 
         {/* Grid body */}
         <div className="tl-grid-body" ref={gridBodyRef}>
-          {projectGroups.length === 0 && unscheduledTasks.length === 0 && (
+          {sortedTasks.length === 0 && unscheduledTasks.length === 0 && (
             <div className="tl-empty">
               <div className="tl-empty-icon">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
@@ -662,167 +681,124 @@ export const TimelineView: React.FC = () => {
             </div>
           )}
 
-          {projectGroups.map(group => {
-            const isCollapsed = collapsedProjects.has(group.projectId);
+          {sortedTasks.map(task => {
+              const effectiveDate = getEffectiveDate(task);
+              const isDragging = dragTaskId === task.id;
+              const isInRange = effectiveDate && dateStrs.includes(effectiveDate);
+              const isSearchMatch = hasSearchQuery && searchMatchIds.has(task.id);
+              const isDimmed = hasSearchQuery && !isSearchMatch;
+              const isCompleting = completingTaskIds.has(task.id);
+              const isRecentlyDropped = recentlyDroppedTaskId === task.id;
+              const proj = task.projectId ? projects.find(p => p.id === task.projectId) : null;
+              const taskColor = proj?.color || '#9CA3AF';
 
-            return (
-              <div key={group.projectId} className="tl-project-group">
-                {/* Project header row */}
-                <div className="tl-project-row" onClick={() => toggleProject(group.projectId)}>
-                  <div className="tl-project-label">
-                    <span className={`tl-collapse-icon ${isCollapsed ? '' : 'expanded'}`}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6" />
+              return (
+                <div key={task.id} data-task-id={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompleting ? 'completing-animation' : ''}`}>
+                  <div className="tl-task-label" title={task.title} draggable onDragStart={(e) => handleDragStart(e, task.id)} onDragEnd={handleDragEnd}>
+                    <button
+                      className="tl-complete-btn"
+                      onClick={(e) => handleCompleteTask(e, task.id)}
+                      title="タスクを完了"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
                       </svg>
+                    </button>
+                    {proj && (
+                      <span className="tl-task-project-indicator" style={{ backgroundColor: proj.color }} title={proj.name}></span>
+                    )}
+                    <span
+                      className="tl-task-title"
+                      onClick={() => setSelectedTaskId(task.id)}
+                    >{task.title}</span>
+                    {task.priority !== 'none' && (
+                      <span className="tl-priority-badge" style={{ color: getPriorityColor(task.priority) }}>
+                        {getPriorityLabel(task.priority)}
+                      </span>
+                    )}
+                    {!isInRange && effectiveDate && (
+                      <span className="tl-out-date-badge">{effectiveDate.replace(/-/g, '/')}</span>
+                    )}
+                    <span className="tl-estimated-input-wrapper">
+                      <svg className="tl-estimated-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      <input
+                        type="number"
+                        className="tl-estimated-input"
+                        value={task.estimatedMinutes || ''}
+                        placeholder="—"
+                        min={0}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          updateTask(task.id, { estimatedMinutes: isNaN(val) ? 0 : val });
+                        }}
+                        title="見込み時間（分）"
+                      />
+                      <span className="tl-estimated-unit">m</span>
                     </span>
-                    <span className="tl-project-dot" style={{ backgroundColor: group.projectColor }}></span>
-                    <span className="tl-project-name">{group.projectName}</span>
-                    <span className="tl-project-count">{group.tasks.length}</span>
+                    <span className="tl-hover-actions">
+                      <button
+                        className="tl-action-btn tl-action-delete"
+                        onClick={(e) => handleDeleteTask(e, task.id, task.title)}
+                        title="タスクを削除"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                      <button
+                        className="tl-action-btn"
+                        onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); }}
+                        title="詳細を開く"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                      </button>
+                    </span>
                   </div>
                   <div className="tl-day-cells">
                     {days.map((day, i) => {
-                      const isDropTarget = dropTargetDateStr === dateStrs[i] && dragTaskId !== null;
-                      const isProjectDropTarget = dropTargetProjectId === group.projectId && dragTaskId !== null;
+                      const dayStr = dateStrs[i];
+                      const hasTask = effectiveDate === dayStr;
+                      const isDropTarget = isDragging && dropTargetDateStr === dayStr;
+                      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+
                       return (
                         <div
-                          key={dateStrs[i]}
-                          className={`tl-day-cell-header ${isToday(day) ? 'today' : ''} ${day.getDay() === 0 || day.getDay() === 6 ? 'weekend' : ''} ${isDropTarget ? 'drop-target' : ''} ${isProjectDropTarget ? 'project-drop-target' : ''}`}
-                          onDragOver={(e) => handleDragOverCell(e, dateStrs[i], group.projectId)}
+                          key={dayStr}
+                          className={`tl-day-cell ${isToday(day) ? 'today' : ''} ${isWeekend ? 'weekend' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+                          onDragOver={(e) => handleDragOverCell(e, dayStr)}
                           onDragLeave={handleDragLeaveCell}
-                          onDrop={(e) => handleDropOnCell(e, dateStrs[i], group.projectId)}
+                          onDrop={(e) => handleDropOnCell(e, dayStr)}
                         >
-                          {/* Show count indicator for collapsed projects */}
-                          {isCollapsed && (() => {
-                            const count = group.tasks.filter(t => getEffectiveDate(t) === dateStrs[i]).length;
-                            return count > 0 ? (
-                              <span className="tl-collapsed-count" style={{ backgroundColor: group.projectColor }}>{count}</span>
-                            ) : null;
-                          })()}
+                          {hasTask && (
+                            <div
+                              className={`tl-task-chip ${isDragging ? 'chip-dragging' : ''} ${isSearchMatch ? 'chip-search-match' : ''} ${isRecentlyDropped ? 'chip-drop-highlight' : ''}`}
+                              style={{
+                                backgroundColor: taskColor,
+                                borderColor: taskColor,
+                              }}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, task.id)}
+                              onDragEnd={handleDragEnd}
+                              title={`${task.title}\n期日: ${dayStr.replace(/-/g, '/')}\nドラッグで移動`}
+                            >
+                              <span className="tl-chip-text">{viewMode === 'weekly' ? task.title : ''}</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
-                {/* Task rows */}
-                {!isCollapsed && group.tasks.map(task => {
-                  const effectiveDate = getEffectiveDate(task);
-                  const isDragging = dragTaskId === task.id;
-                  // Check if task is in visible range
-                  const isInRange = effectiveDate && dateStrs.includes(effectiveDate);
-
-                  const isSearchMatch = hasSearchQuery && searchMatchIds.has(task.id);
-                  const isDimmed = hasSearchQuery && !isSearchMatch;
-                  const isCompleting = completingTaskIds.has(task.id);
-                  const isRecentlyDropped = recentlyDroppedTaskId === task.id;
-
-                  return (
-                    <div key={task.id} data-task-id={task.id} className={`tl-task-row ${isDragging ? 'dragging' : ''} ${!isInRange ? 'out-of-range' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'search-dimmed' : ''} ${jumpHighlightTaskId === task.id ? 'jump-highlight' : ''} ${isCompleting ? 'completing-animation' : ''}`}>
-                      <div className="tl-task-label" title={task.title} draggable onDragStart={(e) => handleDragStart(e, task.id)} onDragEnd={handleDragEnd}>
-                        <button
-                          className="tl-complete-btn"
-                          onClick={(e) => handleCompleteTask(e, task.id)}
-                          title="タスクを完了"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                          </svg>
-                        </button>
-                        <span
-                          className="tl-task-title"
-                          onClick={() => setSelectedTaskId(task.id)}
-                        >{task.title}</span>
-                        {task.priority !== 'none' && (
-                          <span className="tl-priority-badge" style={{ color: getPriorityColor(task.priority) }}>
-                            {getPriorityLabel(task.priority)}
-                          </span>
-                        )}
-                        {!isInRange && effectiveDate && (
-                          <span className="tl-out-date-badge">{effectiveDate.replace(/-/g, '/')}</span>
-                        )}
-                        <span className="tl-estimated-input-wrapper">
-                          <svg className="tl-estimated-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <polyline points="12 6 12 12 16 14" />
-                          </svg>
-                          <input
-                            type="number"
-                            className="tl-estimated-input"
-                            value={task.estimatedMinutes || ''}
-                            placeholder="—"
-                            min={0}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              updateTask(task.id, { estimatedMinutes: isNaN(val) ? 0 : val });
-                            }}
-                            title="見込み時間（分）"
-                          />
-                          <span className="tl-estimated-unit">m</span>
-                        </span>
-                        <span className="tl-hover-actions">
-                          <button
-                            className="tl-action-btn tl-action-delete"
-                            onClick={(e) => handleDeleteTask(e, task.id, task.title)}
-                            title="タスクを削除"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg>
-                          </button>
-                          <button
-                            className="tl-action-btn"
-                            onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); }}
-                            title="詳細を開く"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                              <polyline points="15 3 21 3 21 9" />
-                              <line x1="10" y1="14" x2="21" y2="3" />
-                            </svg>
-                          </button>
-                        </span>
-                      </div>
-                      <div className="tl-day-cells">
-                        {days.map((day, i) => {
-                          const dayStr = dateStrs[i];
-                          const hasTask = effectiveDate === dayStr;
-                          const isDropTarget = isDragging && dropTargetDateStr === dayStr;
-                          const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-
-                          return (
-                            <div
-                              key={dayStr}
-                              className={`tl-day-cell ${isToday(day) ? 'today' : ''} ${isWeekend ? 'weekend' : ''} ${isDropTarget ? 'drop-target' : ''}`}
-                              onDragOver={(e) => handleDragOverCell(e, dayStr, group.projectId)}
-                              onDragLeave={handleDragLeaveCell}
-                              onDrop={(e) => handleDropOnCell(e, dayStr, group.projectId)}
-                            >
-                              {hasTask && (
-                                <div
-                                  className={`tl-task-chip ${isDragging ? 'chip-dragging' : ''} ${isSearchMatch ? 'chip-search-match' : ''} ${isRecentlyDropped ? 'chip-drop-highlight' : ''}`}
-                                  style={{
-                                    backgroundColor: group.projectColor,
-                                    borderColor: group.projectColor,
-                                  }}
-                                  draggable
-                                  onDragStart={(e) => handleDragStart(e, task.id)}
-                                  onDragEnd={handleDragEnd}
-                                  title={`${task.title}\n期日: ${dayStr.replace(/-/g, '/')}\nドラッグで移動`}
-                                >
-                                  <span className="tl-chip-text">{viewMode === 'weekly' ? task.title : ''}</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
+              );
           })}
 
           {/* Unscheduled tasks section */}

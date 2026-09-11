@@ -469,6 +469,24 @@ export const TaskListView: React.FC = () => {
     // Apply sorting
     const isArchive = activeProjectId === 'completed';
 
+    // Helper: get first tag name for sort grouping
+    const getFirstTagName = (task: Task): string => {
+      const taskTagIds = task.tagIds || [];
+      if (taskTagIds.length === 0) return '';
+      const tag = tags.find(t => t.id === taskTagIds[0]);
+      return tag?.name || '';
+    };
+
+    // Tag comparison helper: same tag → adjacent, no tag → after tagged
+    const compareByTag = (a: Task, b: Task): number => {
+      const aTag = getFirstTagName(a);
+      const bTag = getFirstTagName(b);
+      if (aTag === bTag) return 0;
+      if (!aTag && bTag) return 1;   // no tag → after tagged
+      if (aTag && !bTag) return -1;  // tagged → before no tag
+      return aTag.localeCompare(bTag, 'ja');
+    };
+
     if (sortColumn && sortDirection) {
       // User-chosen sort
       const getComparison = (col: ColumnId, dir: SortDirection, a: Task, b: Task) => {
@@ -518,6 +536,8 @@ export const TaskListView: React.FC = () => {
         if (cmp === 0 && secondarySortColumn && secondarySortDirection) {
           cmp = getComparison(secondarySortColumn, secondarySortDirection, a, b);
         }
+        // Tag grouping as tiebreaker after user-chosen sort
+        if (cmp === 0) cmp = compareByTag(a, b);
         return cmp;
       });
     } else {
@@ -533,7 +553,7 @@ export const TaskListView: React.FC = () => {
           return dB.localeCompare(dA);
         });
       } else {
-        // Active: date asc → priority desc → project name asc
+        // Active: date asc → priority desc → project name asc → tag group → createdAt asc
         const priorityOrder: Record<string, number> = { '1st': 5, 'quick': 4, 'high': 3, 'mid': 2, 'low': 1, 'none': 0 };
         filtered.sort((a, b) => {
           // Date asc (null last)
@@ -557,6 +577,9 @@ export const TaskListView: React.FC = () => {
           const pB = projects.find(p => p.id === b.projectId)?.name || '';
           const projCmp = sortProjectsCustom(pA, pB);
           if (projCmp !== 0) return projCmp;
+          // Tag group: same tag → adjacent
+          const tc = compareByTag(a, b);
+          if (tc !== 0) return tc;
           // CreatedAt asc as final tiebreaker (newer tasks at bottom of group)
           return (a.createdAt || '').localeCompare(b.createdAt || '');
         });
@@ -564,7 +587,7 @@ export const TaskListView: React.FC = () => {
     }
 
     return filtered;
-  }, [tasks, activeProjectId, sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, projects]);
+  }, [tasks, activeProjectId, sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, projects, tags]);
 
   const completedTasks = useMemo(() => {
     if (!showCompleted || activeProjectId === 'completed') return [];

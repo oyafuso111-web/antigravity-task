@@ -469,6 +469,13 @@
   background: var(--bg-hover);
 }
 
+.tl-task-project-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 .tl-priority-dot {
   width: 6px;
   height: 6px;
