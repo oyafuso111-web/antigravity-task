@@ -186,29 +186,55 @@ export const fetchAndParseCalendar = async (
       
       if (!summary || !uid) continue;
       
-      const isAllDay = event.startDate.isDate;
       const isRecurring = event.isRecurring();
       
       if (isRecurring) {
         const iterator = event.iterator(iteratorStart);
         let next: any;
         let loops = 0;
+        
+        const relatedExceptions = exceptions.filter(ex => ex.uid === uid);
+        
         while ((next = iterator.next()) && loops < 500) {
           loops++;
           // Break condition using buffer to allow shifted exceptions to be processed
           if (icalTimeToDateStr(next) > maxDateBufferStr) break;
-          const details = event.getOccurrenceDetails(next);
+          
+          let details = event.getOccurrenceDetails(next);
+          
+          // Manual matching to bypass ical.js timezone string mismatch
+          // Google Calendar sometimes exports master as TZID (local) and exception as Z (UTC).
+          // We match by comparing the Year, Month, Day of the recurrenceId.
+          const matchingEx = relatedExceptions.find(ex => 
+             ex.recurrenceId && 
+             ex.recurrenceId.year === next.year && 
+             ex.recurrenceId.month === next.month && 
+             ex.recurrenceId.day === next.day
+          );
+          
+          if (matchingEx) {
+            details = {
+              startDate: matchingEx.startDate,
+              endDate: matchingEx.endDate,
+              item: matchingEx,
+              recurrenceId: next
+            } as any;
+          }
+          
+          const isOccurrenceAllDay = details.startDate.isDate;
+          
           await processOccurrence(
             details.startDate,
             details.endDate,
             details.item?.summary || summary,
             uid,
-            isAllDay,
+            isOccurrenceAllDay,
             true,
             next
           );
         }
       } else {
+        const isAllDay = event.startDate.isDate;
         await processOccurrence(event.startDate, event.endDate, summary, uid, isAllDay, false);
       }
     } catch (err) {
