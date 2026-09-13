@@ -24,6 +24,11 @@ export const fetchAndParseCalendar = async (
   const maxDate = new Date(today);
   maxDate.setDate(maxDate.getDate() + 35); // Approx 1 month + a few days
   
+  const startIcalTime = ICAL.Time.fromJSDate(today);
+  const maxIcalTime = ICAL.Time.fromJSDate(maxDate);
+  const safetyStartTime = startIcalTime.clone();
+  safetyStartTime.adjust(-7, 0, 0, 0); // 7 days back to catch multi-day events
+  
   let calendarTag = tags.find(t => t.name === 'カレンダー');
   let newTag: Tag | null = null;
   
@@ -40,33 +45,28 @@ export const fetchAndParseCalendar = async (
   const newTasks: Partial<Task>[] = [];
   const updatedTasks: Partial<Task>[] = [];
   
-  vevents.forEach(vevent => {
-    const event = new ICAL.Event(vevent);
-    const startDate = event.startDate?.toJSDate();
-    const endDate = event.endDate?.toJSDate();
-    const summary = event.summary;
-    const uid = event.uid;
+  const processOccurrence = (startIcal: any, endIcal: any, summary: string, baseUid: string, isAllDay: boolean, isRecurring: boolean) => {
+    if (endIcal && endIcal.compare(startIcalTime) <= 0) return;
+    if (startIcal && startIcal.compare(maxIcalTime) > 0) return;
+
+    const y = startIcal.year;
+    const m = String(startIcal.month).padStart(2, '0');
+    const d = String(startIcal.day).padStart(2, '0');
+    const dueDateStr = `${y}-${m}-${d}`;
     
-    if (!startDate || !summary || !uid) return;
-    
-    // Filter events: Today <= startDate <= Today + 35 days
-    if (startDate < today || startDate > maxDate) return;
-    
-    const dueDateStr = startDate.toISOString().split('T')[0];
+    const occurrenceUid = isRecurring ? `${baseUid}_${dueDateStr}` : baseUid;
     
     let estimatedMinutes = 0;
-    // Check if it's an all-day event
-    const isAllDay = event.startDate.isDate;
-    
-    if (!isAllDay && endDate) {
-      const diffMs = endDate.getTime() - startDate.getTime();
+    if (!isAllDay && endIcal) {
+      const startDateJS = startIcal.toJSDate();
+      const endDateJS = endIcal.toJSDate();
+      const diffMs = endDateJS.getTime() - startDateJS.getTime();
       estimatedMinutes = Math.floor(diffMs / 60000);
     }
     
-    const existingTask = existingTasks.find(t => t.externalId === uid);
+    const existingTask = existingTasks.find(t => t.externalId === occurrenceUid);
     
     if (existingTask) {
-      // Check if we need to update
       let changed = false;
       const updates: Partial<Task> = {};
       
@@ -87,16 +87,44 @@ export const fetchAndParseCalendar = async (
         updatedTasks.push({ id: existingTask.id, ...updates });
       }
     } else {
-      // New task
       newTasks.push({
         title: summary,
         dueDate: dueDateStr,
         estimatedMinutes,
         tagIds: [calendarTag!.id],
         projectId: null,
-        externalId: uid,
+        externalId: occurrenceUid,
         priority: 'none'
       });
+    }
+  };
+
+  vevents.forEach(vevent => {
+    try {
+      const event = new ICAL.Event(vevent);
+      const summary = event.summary;
+      const uid = event.uid;
+      
+      if (!summary || !uid) return;
+      
+      const isAllDay = event.startDate.isDate;
+      const isRecurring = event.isRecurring();
+      
+      if (isRecurring) {
+        const iterator = event.iterator(safetyStartTime);
+        let next: any;
+        let loops = 0;
+        while ((next = iterator.next()) && loops < 500) {
+          loops++;
+          if (next.compare(maxIcalTime) > 0) break;
+          const details = event.getOccurrenceDetails(next);
+          processOccurrence(details.startDate, details.endDate, summary, uid, isAllDay, true);
+        }
+      } else {
+        processOccurrence(event.startDate, event.endDate, summary, uid, isAllDay, false);
+      }
+    } catch (err) {
+      console.warn('Failed to parse event', err);
     }
   });
   
