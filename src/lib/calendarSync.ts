@@ -1,7 +1,9 @@
 import ICAL from 'ical.js';
 import type { Task, Tag } from '../types';
 
-const generateDeterministicId = async (str: string) => {
+// Generate a deterministic UUID-like string from a seed string.
+// Same input always produces the same output, preventing duplicate tasks.
+const generateDeterministicId = async (str: string): Promise<string> => {
   const msgUint8 = new TextEncoder().encode(str);
   const hashBuffer = await crypto.subtle.digest('SHA-1', msgUint8);
   const arr = Array.from(new Uint8Array(hashBuffer));
@@ -10,6 +12,13 @@ const generateDeterministicId = async (str: string) => {
     (parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80
   ).toString(16)}${hex.slice(18, 20)}-${hex.slice(20, 32)}`;
 };
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+// Extract YYYY-MM-DD from an ICAL.Time without any timezone conversion.
+// This avoids the JST→UTC offset issue that caused all-day events to disappear.
+const icalTimeToDateStr = (t: any): string =>
+  `${t.year}-${pad2(t.month)}-${pad2(t.day)}`;
 
 export const fetchAndParseCalendar = async (
   icalUrl: string,
@@ -29,16 +38,27 @@ export const fetchAndParseCalendar = async (
   const comp = new ICAL.Component(jcalData);
   const vevents = comp.getAllSubcomponents('vevent');
   
+  // ---- Date boundaries (string-based, timezone-safe) ----
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const maxDate = new Date(today);
-  maxDate.setDate(maxDate.getDate() + 35); // Approx 1 month + a few days
+  const todayStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 35);
+  const maxDateStr = `${maxDate.getFullYear()}-${pad2(maxDate.getMonth() + 1)}-${pad2(maxDate.getDate())}`;
+
+  // ICAL.Time for the iterator – use fromData to avoid UTC conversion
+  const iteratorStart = ICAL.Time.fromData({
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate() - 7,   // 7 days back to catch multi-day events
+    isDate: true
+  });
+  const iteratorMax = ICAL.Time.fromData({
+    year: maxDate.getFullYear(),
+    month: maxDate.getMonth() + 1,
+    day: maxDate.getDate(),
+    isDate: true
+  });
   
-  const startIcalTime = ICAL.Time.fromJSDate(today);
-  const maxIcalTime = ICAL.Time.fromJSDate(maxDate);
-  const safetyStartTime = startIcalTime.clone();
-  safetyStartTime.adjust(-7, 0, 0, 0); // 7 days back to catch multi-day events
-  
+  // ---- Tag handling ----
   let calendarTag = tags.find(t => t.name === 'カレンダー');
   let newTag: Tag | null = null;
   
@@ -46,37 +66,51 @@ export const fetchAndParseCalendar = async (
     newTag = {
       id: crypto.randomUUID(),
       name: 'カレンダー',
-      color: '#4285F4', // Google Calendar Blue
+      color: '#4285F4',
       createdAt: now.toISOString()
     };
     calendarTag = newTag;
   }
   
+  // ---- Process events ----
   const newTasks: Partial<Task>[] = [];
   const updatedTasks: Partial<Task>[] = [];
-  
-  const processOccurrence = async (startIcal: any, endIcal: any, summary: string, baseUid: string, isAllDay: boolean, isRecurring: boolean) => {
-    if (endIcal && endIcal.compare(startIcalTime) <= 0) return;
-    if (startIcal && startIcal.compare(maxIcalTime) > 0) return;
+  // Track IDs we've already processed in this run to avoid within-run duplicates
+  const processedIds = new Set<string>();
 
-    const y = startIcal.year;
-    const m = String(startIcal.month).padStart(2, '0');
-    const d = String(startIcal.day).padStart(2, '0');
-    const dueDateStr = `${y}-${m}-${d}`;
+  const processOccurrence = async (
+    startIcal: any,
+    endIcal: any,
+    summary: string,
+    baseUid: string,
+    isAllDay: boolean,
+    isRecurring: boolean
+  ) => {
+    const dueDateStr = icalTimeToDateStr(startIcal);
+
+    // String-based date filtering – completely timezone-safe
+    if (dueDateStr < todayStr) return;
+    if (dueDateStr > maxDateStr) return;
     
-    const occurrenceUid = isRecurring ? `${baseUid}_${dueDateStr}` : baseUid;
-    const deterministicId = await generateDeterministicId(occurrenceUid);
+    const occurrenceKey = isRecurring ? `${baseUid}_${dueDateStr}` : baseUid;
+    const deterministicId = await generateDeterministicId(occurrenceKey);
+
+    // Skip if we already processed this occurrence in this sync run
+    if (processedIds.has(deterministicId)) return;
+    processedIds.add(deterministicId);
     
     let estimatedMinutes = 0;
     if (!isAllDay && endIcal) {
-      const startDateJS = startIcal.toJSDate();
-      const endDateJS = endIcal.toJSDate();
-      const diffMs = endDateJS.getTime() - startDateJS.getTime();
-      estimatedMinutes = Math.floor(diffMs / 60000);
+      const startJs = startIcal.toJSDate();
+      const endJs = endIcal.toJSDate();
+      const diffMs = endJs.getTime() - startJs.getTime();
+      estimatedMinutes = Math.max(0, Math.floor(diffMs / 60000));
     }
     
-    // We check both the deterministic ID and the externalId as fallback (though externalId is not persisted in Supabase)
-    const existingTask = existingTasks.find(t => t.id === deterministicId || t.externalId === occurrenceUid);
+    // Check if the task already exists (by deterministic ID or legacy externalId)
+    const existingTask = existingTasks.find(
+      t => t.id === deterministicId || t.externalId === occurrenceKey
+    );
     
     if (existingTask) {
       let changed = false;
@@ -106,7 +140,7 @@ export const fetchAndParseCalendar = async (
         estimatedMinutes,
         tagIds: [calendarTag!.id],
         projectId: null,
-        externalId: occurrenceUid,
+        externalId: occurrenceKey,
         priority: 'none'
       });
     }
@@ -114,30 +148,43 @@ export const fetchAndParseCalendar = async (
 
   for (const vevent of vevents) {
     try {
+      // Skip exception/override events – they have a RECURRENCE-ID property.
+      // These are handled automatically by getOccurrenceDetails() of the
+      // parent recurring event, so processing them here would cause duplicates.
+      if (vevent.hasProperty('recurrence-id')) continue;
+
       const event = new ICAL.Event(vevent);
       const summary = event.summary;
       const uid = event.uid;
       
-      if (!summary || !uid) return;
+      if (!summary || !uid) continue;
       
       const isAllDay = event.startDate.isDate;
       const isRecurring = event.isRecurring();
       
       if (isRecurring) {
-        const iterator = event.iterator(safetyStartTime);
+        const iterator = event.iterator(iteratorStart);
         let next: any;
         let loops = 0;
         while ((next = iterator.next()) && loops < 500) {
           loops++;
-          if (next.compare(maxIcalTime) > 0) break;
+          // String-based break condition
+          if (icalTimeToDateStr(next) > maxDateStr) break;
           const details = event.getOccurrenceDetails(next);
-          await processOccurrence(details.startDate, details.endDate, summary, uid, isAllDay, true);
+          await processOccurrence(
+            details.startDate,
+            details.endDate,
+            details.item?.summary || summary,
+            uid,
+            isAllDay,
+            true
+          );
         }
       } else {
         await processOccurrence(event.startDate, event.endDate, summary, uid, isAllDay, false);
       }
     } catch (err) {
-      console.warn('Failed to parse event', err);
+      console.warn('[calendarSync] Failed to parse event:', err);
     }
   }
   

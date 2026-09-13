@@ -431,21 +431,25 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setUser: (user) => set({ user }),
 
   syncCalendar: async () => {
-    const { calendarIcalUrl, tasks, tags } = get();
+    const { calendarIcalUrl } = get();
     if (!calendarIcalUrl) return;
 
     try {
+      // Read fresh state (tags/tasks should be up-to-date after fetchInitialData)
+      const { tasks, tags } = get();
       const { newTasks, updatedTasks, newTag } = await fetchAndParseCalendar(calendarIcalUrl, tasks, tags);
       
       const user = await ensureAuthUser(get, set);
 
-      // Handle new tag if created
+      // ---- Handle tag (with duplicate prevention) ----
       if (newTag) {
-        // Prevent duplicate creation if fetchInitialData already loaded it concurrently
-        if (!get().tags.some(t => t.name === 'カレンダー')) {
+        // Re-check store right before inserting to avoid race conditions
+        const currentTags = get().tags;
+        if (!currentTags.some(t => t.name === 'カレンダー')) {
           set(state => ({ tags: [...state.tags, newTag] }));
           if (user) {
-            await supabase.from('tags').insert({
+            // Use upsert to avoid DB constraint violations
+            await supabase.from('tags').upsert({
               ...mapTagToDB(newTag),
               user_id: user.id
             });
@@ -453,12 +457,58 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         }
       }
 
-      // Handle new tasks
+      // ---- Handle new tasks (with ID-based deduplication) ----
+      const tasksToAdd: Task[] = [];
       for (const t of newTasks) {
-        await get().addTask(t as any);
+        // Skip if a task with this deterministic ID already exists in current store
+        if (t.id && get().tasks.some(existing => existing.id === t.id)) {
+          console.log(`[syncCalendar] Skipping duplicate task: ${t.title} (${t.id})`);
+          continue;
+        }
+
+        // Also ensure the tagIds reference an existing tag
+        const currentCalTag = get().tags.find(tg => tg.name === 'カレンダー');
+        const tagIds = currentCalTag ? [currentCalTag.id] : (t.tagIds || []);
+
+        const fullTask: Task = {
+          id: t.id!,
+          projectId: t.projectId || null,
+          title: t.title || '',
+          description: '',
+          completed: false,
+          priority: t.priority || 'none',
+          tagIds,
+          dueDate: t.dueDate || null,
+          recurrence: null,
+          createdAt: new Date().toISOString(),
+          accumulatedTime: 0,
+          estimatedMinutes: t.estimatedMinutes || 0,
+          dailyLogs: {},
+          subtasks: [],
+          comments: [],
+          order: get().tasks.length + tasksToAdd.length,
+          homeBucket: t.dueDate ? null : 'inbox',
+          externalId: t.externalId,
+        };
+        tasksToAdd.push(fullTask);
       }
 
-      // Handle updated tasks
+      if (tasksToAdd.length > 0) {
+        set(state => ({ tasks: [...state.tasks, ...tasksToAdd] }));
+        console.log(`[syncCalendar] Added ${tasksToAdd.length} new calendar tasks`);
+
+        if (user) {
+          for (const task of tasksToAdd) {
+            // Use upsert to handle the case where a task with this ID already exists in DB
+            await supabase.from('tasks').upsert({
+              ...mapTaskToDB(task),
+              user_id: user.id
+            });
+          }
+        }
+      }
+
+      // ---- Handle updated tasks ----
       for (const t of updatedTasks) {
         if (t.id) {
           get().updateTask(t.id, t);
@@ -468,6 +518,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const now = Date.now();
       localStorage.setItem('antigravity_last_synced', now.toString());
       set({ lastSyncedAt: now });
+      console.log(`[syncCalendar] Sync complete. New: ${tasksToAdd.length}, Updated: ${updatedTasks.length}`);
       
     } catch (error) {
       console.error('[syncCalendar] Error syncing calendar:', error);
