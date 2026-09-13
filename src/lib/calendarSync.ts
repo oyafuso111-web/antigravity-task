@@ -6,8 +6,8 @@ export const fetchAndParseCalendar = async (
   existingTasks: Task[],
   tags: Tag[]
 ): Promise<{ newTasks: Partial<Task>[], updatedTasks: Partial<Task>[], newTag: Tag | null }> => {
-  // Use a CORS proxy to bypass browser restrictions
-  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(icalUrl);
+  // Use our own Vercel serverless function to bypass CORS restrictions
+  const proxyUrl = '/api/calendarProxy?url=' + encodeURIComponent(icalUrl);
   
   const response = await fetch(proxyUrl);
   if (!response.ok) {
