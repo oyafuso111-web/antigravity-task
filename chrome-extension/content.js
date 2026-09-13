@@ -90,10 +90,16 @@
     const senderEls = qAll(SELECTORS.sender);
     let senderName = '';
     let senderEmail = '';
+    let legacyMessageId = '';
     if (senderEls.length > 0) {
       const lastSender = senderEls[senderEls.length - 1];
       senderName  = lastSender.getAttribute('name') || lastSender.textContent?.trim() || '';
       senderEmail = lastSender.getAttribute('email') || '';
+      
+      const msgContainer = lastSender.closest('[data-legacy-message-id]');
+      if (msgContainer) {
+        legacyMessageId = msgContainer.getAttribute('data-legacy-message-id') || '';
+      }
     }
 
     // Date
@@ -115,7 +121,7 @@
       bodyText = bodyText.substring(0, 1000) + '\n…(以下省略)';
     }
 
-    return { subject, senderName, senderEmail, dateText, bodyText };
+    return { subject, senderName, senderEmail, dateText, bodyText, legacyMessageId };
   }
 
   // ------------------------------------------------------------------
@@ -200,7 +206,13 @@
     if (emailData.dateText) {
       descParts.push(`📅 Date: ${emailData.dateText}`);
     }
-    descParts.push(`🔗 URL: ${window.location.href}`);
+    
+    let emailUrl = window.location.href;
+    if (emailData.legacyMessageId) {
+      const basePath = window.location.origin + window.location.pathname;
+      emailUrl = `${basePath}#all/${emailData.legacyMessageId}`;
+    }
+    descParts.push(`🔗 URL: ${emailUrl}`);
     if (emailData.bodyText) {
       descParts.push('');
       descParts.push(emailData.bodyText);
