@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import type { Task, Project, Folder, Recurrence, HomeBucket, Tag, TimeBlock, ProjectComment } from '../types';
 import { supabase } from '../lib/supabase';
+import { fetchAndParseCalendar } from '../lib/calendarSync';
 
 export type AppTab = 'list' | 'calendar' | 'calendar2' | 'timeline' | 'reports';
 export type ColumnId = 'name' | 'project' | 'time' | 'estimatedMinutes' | 'tags' | 'priority' | 'date' | 'createdAt';
@@ -39,7 +40,12 @@ interface TaskStore {
 
   user: any | null;
 
+  calendarIcalUrl: string | null;
+  lastSyncedAt: number | null;
+
   // Actions
+  setCalendarIcalUrl: (url: string | null) => void;
+  syncCalendar: () => Promise<void>;
   loadTimerState: () => void;
   setUser: (user: any | null) => void;
   signInWithGoogle: () => Promise<void>;
@@ -410,8 +416,61 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   timerAccumulatedAtStart: null,
   timerTick: Date.now(),
   lastTimerTick: null,
+  calendarIcalUrl: localStorage.getItem('antigravity_calendar_url') || null,
+  lastSyncedAt: localStorage.getItem('antigravity_last_synced') ? parseInt(localStorage.getItem('antigravity_last_synced')!, 10) : null,
+
+  setCalendarIcalUrl: (url) => {
+    if (url) {
+      localStorage.setItem('antigravity_calendar_url', url);
+    } else {
+      localStorage.removeItem('antigravity_calendar_url');
+    }
+    set({ calendarIcalUrl: url });
+  },
 
   setUser: (user) => set({ user }),
+
+  syncCalendar: async () => {
+    const { calendarIcalUrl, tasks, tags } = get();
+    if (!calendarIcalUrl) return;
+
+    try {
+      const { newTasks, updatedTasks, newTag } = await fetchAndParseCalendar(calendarIcalUrl, tasks, tags);
+      
+      const user = await ensureAuthUser(get, set);
+
+      // Handle new tag if created
+      if (newTag) {
+        set(state => ({ tags: [...state.tags, newTag] }));
+        if (user) {
+          await supabase.from('tags').insert({
+            ...mapTagToDB(newTag),
+            user_id: user.id
+          });
+        }
+      }
+
+      // Handle new tasks
+      for (const t of newTasks) {
+        await get().addTask(t as any);
+      }
+
+      // Handle updated tasks
+      for (const t of updatedTasks) {
+        if (t.id) {
+          get().updateTask(t.id, t);
+        }
+      }
+
+      const now = Date.now();
+      localStorage.setItem('antigravity_last_synced', now.toString());
+      set({ lastSyncedAt: now });
+      
+    } catch (error) {
+      console.error('[syncCalendar] Error syncing calendar:', error);
+      throw error;
+    }
+  },
 
   signInWithGoogle: async () => {
     await supabase.auth.signInWithOAuth({

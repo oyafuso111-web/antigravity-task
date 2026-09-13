@@ -7,11 +7,14 @@ interface Props {
 }
 
 export const SettingsModal: React.FC<Props> = ({ onClose }) => {
-  const { user, signInWithGoogle, signOut } = useTaskStore();
+  const { user, signInWithGoogle, signOut, calendarIcalUrl, setCalendarIcalUrl, syncCalendar, lastSyncedAt } = useTaskStore();
   const [isBackingUp, setIsBackingUp] = React.useState(false);
   const [isRestoring, setIsRestoring] = React.useState(false);
   const [backupFiles, setBackupFiles] = React.useState<string[]>([]);
   const [selectedBackup, setSelectedBackup] = React.useState<string>('');
+  
+  const [icalInput, setIcalInput] = React.useState(calendarIcalUrl || '');
+  const [isSyncing, setIsSyncing] = React.useState(false);
 
   const [isFetchingList, setIsFetchingList] = React.useState(true);
 
@@ -74,6 +77,27 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
     }
   };
 
+  const handleSaveIcal = () => {
+    setCalendarIcalUrl(icalInput);
+    alert('カレンダーURLを保存しました。');
+  };
+
+  const handleSync = async () => {
+    if (!calendarIcalUrl) {
+      alert('先にカレンダーURLを保存してください。');
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      await syncCalendar();
+      alert('カレンダーを同期しました！');
+    } catch (err: any) {
+      alert('同期に失敗しました: ' + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -105,6 +129,35 @@ export const SettingsModal: React.FC<Props> = ({ onClose }) => {
                 </button>
               </>
             )}
+          </div>
+
+          <div className="settings-section">
+            <h3>Google Calendar Sync (iCal)</h3>
+            <p className="settings-description">
+              仕事用など、別アカウントのGoogleカレンダーの「iCal形式の非公開URL」を設定すると、予定がタスクとして同期されます。
+            </p>
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <input 
+                type="text" 
+                placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
+                value={icalInput}
+                onChange={e => setIcalInput(e.target.value)}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-app)', color: 'var(--text-primary)', width: '100%' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button className="brand-btn" onClick={handleSaveIcal} style={{ background: 'var(--brand-solid)' }}>
+                  保存
+                </button>
+                <button className="brand-btn" onClick={handleSync} disabled={isSyncing || !calendarIcalUrl} style={{ background: 'var(--priority-high)' }}>
+                  {isSyncing ? '同期中...' : '今すぐ同期'}
+                </button>
+                {lastSyncedAt && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    最終同期: {new Date(lastSyncedAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="settings-section">

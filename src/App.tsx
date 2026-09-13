@@ -72,6 +72,8 @@ function App() {
     fetchInitialData,
     pauseTimer,
     activeProjectId,
+    syncCalendar,
+    calendarIcalUrl,
   } = useTaskStore();
 
   const { isProjectDetailOpen, projects } = useTaskStore();
@@ -86,6 +88,15 @@ function App() {
     }
     prevProjectRef.current = activeProjectId;
   }, [activeProjectId]);
+
+  const hasSyncedCalendarRef = useRef(false);
+  useEffect(() => {
+    if (calendarIcalUrl && !hasSyncedCalendarRef.current) {
+      hasSyncedCalendarRef.current = true;
+      console.log('[App] Auto-syncing calendar on startup');
+      syncCalendar().catch(console.error);
+    }
+  }, [calendarIcalUrl, syncCalendar]);
 
   useEffect(() => {
     // Initialize global IME composition listeners

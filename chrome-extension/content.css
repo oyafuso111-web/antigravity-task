@@ -1,0 +1,363 @@
+/* ============================================================
+   Antigravity Task – Gmail Content Script Styles
+   ============================================================
+   Injected into mail.google.com to style the task button,
+   modal, and toast notifications.
+   ============================================================ */
+
+/* ------------------------------------------------------------------
+   Task Registration Button (injected near email subject)
+   ------------------------------------------------------------------ */
+.ag-task-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #6C63FF, #5A52E0);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.25);
+  vertical-align: middle;
+  flex-shrink: 0;
+  line-height: 1.4;
+  margin-left: 8px;
+}
+
+.ag-task-btn:hover {
+  background: linear-gradient(135deg, #7B73FF, #6C63FF);
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.ag-task-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(108, 99, 255, 0.3);
+}
+
+.ag-task-btn-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.ag-task-btn-text {
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------
+   Modal Overlay
+   ------------------------------------------------------------------ */
+#ag-task-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ag-fadeIn 0.2s ease;
+}
+
+#ag-task-modal-overlay.ag-modal-closing {
+  animation: ag-fadeOut 0.2s ease forwards;
+}
+
+@keyframes ag-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ag-fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* ------------------------------------------------------------------
+   Modal Container
+   ------------------------------------------------------------------ */
+.ag-task-modal {
+  background: #1a1a24;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  width: 440px;
+  max-width: 90vw;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: ag-slideUp 0.25s ease;
+  overflow: hidden;
+}
+
+@keyframes ag-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modal Header */
+.ag-task-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(108, 99, 255, 0.04);
+}
+
+.ag-task-modal-logo {
+  font-size: 18px;
+}
+
+.ag-task-modal-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e4e4ea;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+}
+
+.ag-task-modal-close {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 20px;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.ag-task-modal-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4ea;
+}
+
+/* Modal Body */
+.ag-task-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ag-task-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+}
+
+.ag-task-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e4e4ea;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ag-task-input:focus {
+  border-color: #6C63FF;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ag-task-input.ag-input-error {
+  border-color: #E74C3C;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15);
+  animation: ag-shake 0.3s ease;
+}
+
+@keyframes ag-shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-4px); }
+  75%      { transform: translateX(4px); }
+}
+
+/* Email Preview */
+.ag-task-email-preview {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ag-task-email-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ag-email-from,
+.ag-email-date {
+  font-size: 12px;
+  color: #999;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+}
+
+/* Tags display */
+.ag-task-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ag-task-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+  background: rgba(72, 201, 176, 0.1);
+  color: #48C9B0;
+  border: 1px solid rgba(72, 201, 176, 0.2);
+}
+
+.ag-task-tag-badge.ag-tag-email {
+  background: rgba(66, 133, 244, 0.1);
+  color: #4285F4;
+  border-color: rgba(66, 133, 244, 0.2);
+}
+
+/* Modal Footer */
+.ag-task-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.ag-task-btn-cancel {
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+}
+
+.ag-task-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ccc;
+}
+
+.ag-task-btn-submit {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6C63FF, #5A52E0);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.25);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ag-task-btn-submit:hover {
+  background: linear-gradient(135deg, #7B73FF, #6C63FF);
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.ag-task-btn-submit:active {
+  transform: translateY(0);
+}
+
+.ag-task-btn-submit.ag-btn-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.ag-task-btn-submit.ag-btn-loading::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ag-spin 0.6s linear infinite;
+}
+
+@keyframes ag-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ------------------------------------------------------------------
+   Toast Notifications
+   ------------------------------------------------------------------ */
+.ag-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', Arial, sans-serif;
+  z-index: 9999999;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+
+.ag-toast-success {
+  background: linear-gradient(135deg, #1a2e28, #1e3a30);
+  color: #48C9B0;
+  border: 1px solid rgba(72, 201, 176, 0.2);
+}
+
+.ag-toast-error {
+  background: linear-gradient(135deg, #2e1a1a, #3a1e1e);
+  color: #E74C3C;
+  border: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.ag-toast-visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+.ag-toast-hiding {
+  transform: translateX(-50%) translateY(80px);
+  opacity: 0;
+}
