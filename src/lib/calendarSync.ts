@@ -1,6 +1,16 @@
 import ICAL from 'ical.js';
 import type { Task, Tag } from '../types';
 
+const generateDeterministicId = async (str: string) => {
+  const msgUint8 = new TextEncoder().encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', msgUint8);
+  const arr = Array.from(new Uint8Array(hashBuffer));
+  const hex = arr.map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${(
+    (parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80
+  ).toString(16)}${hex.slice(18, 20)}-${hex.slice(20, 32)}`;
+};
+
 export const fetchAndParseCalendar = async (
   icalUrl: string,
   existingTasks: Task[],
@@ -45,7 +55,7 @@ export const fetchAndParseCalendar = async (
   const newTasks: Partial<Task>[] = [];
   const updatedTasks: Partial<Task>[] = [];
   
-  const processOccurrence = (startIcal: any, endIcal: any, summary: string, baseUid: string, isAllDay: boolean, isRecurring: boolean) => {
+  const processOccurrence = async (startIcal: any, endIcal: any, summary: string, baseUid: string, isAllDay: boolean, isRecurring: boolean) => {
     if (endIcal && endIcal.compare(startIcalTime) <= 0) return;
     if (startIcal && startIcal.compare(maxIcalTime) > 0) return;
 
@@ -55,6 +65,7 @@ export const fetchAndParseCalendar = async (
     const dueDateStr = `${y}-${m}-${d}`;
     
     const occurrenceUid = isRecurring ? `${baseUid}_${dueDateStr}` : baseUid;
+    const deterministicId = await generateDeterministicId(occurrenceUid);
     
     let estimatedMinutes = 0;
     if (!isAllDay && endIcal) {
@@ -64,7 +75,8 @@ export const fetchAndParseCalendar = async (
       estimatedMinutes = Math.floor(diffMs / 60000);
     }
     
-    const existingTask = existingTasks.find(t => t.externalId === occurrenceUid);
+    // We check both the deterministic ID and the externalId as fallback (though externalId is not persisted in Supabase)
+    const existingTask = existingTasks.find(t => t.id === deterministicId || t.externalId === occurrenceUid);
     
     if (existingTask) {
       let changed = false;
@@ -88,6 +100,7 @@ export const fetchAndParseCalendar = async (
       }
     } else {
       newTasks.push({
+        id: deterministicId,
         title: summary,
         dueDate: dueDateStr,
         estimatedMinutes,
@@ -99,7 +112,7 @@ export const fetchAndParseCalendar = async (
     }
   };
 
-  vevents.forEach(vevent => {
+  for (const vevent of vevents) {
     try {
       const event = new ICAL.Event(vevent);
       const summary = event.summary;
@@ -118,15 +131,15 @@ export const fetchAndParseCalendar = async (
           loops++;
           if (next.compare(maxIcalTime) > 0) break;
           const details = event.getOccurrenceDetails(next);
-          processOccurrence(details.startDate, details.endDate, summary, uid, isAllDay, true);
+          await processOccurrence(details.startDate, details.endDate, summary, uid, isAllDay, true);
         }
       } else {
-        processOccurrence(event.startDate, event.endDate, summary, uid, isAllDay, false);
+        await processOccurrence(event.startDate, event.endDate, summary, uid, isAllDay, false);
       }
     } catch (err) {
       console.warn('Failed to parse event', err);
     }
-  });
+  }
   
   return { newTasks, updatedTasks, newTag };
 };
