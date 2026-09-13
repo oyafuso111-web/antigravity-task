@@ -51,12 +51,6 @@ export const fetchAndParseCalendar = async (
     day: now.getDate() - 7,   // 7 days back to catch multi-day events
     isDate: true
   });
-  const iteratorMax = ICAL.Time.fromData({
-    year: maxDate.getFullYear(),
-    month: maxDate.getMonth() + 1,
-    day: maxDate.getDate(),
-    isDate: true
-  });
   
   // ---- Tag handling ----
   let calendarTag = tags.find(t => t.name === 'カレンダー');
