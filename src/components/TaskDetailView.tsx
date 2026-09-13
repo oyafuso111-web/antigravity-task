@@ -423,6 +423,7 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
   // --- IME-safe local state for title and description ---
   const [localTitle, setLocalTitle] = useState(task?.title || '');
   const [localDesc, setLocalDesc] = useState(task?.description || '');
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
   const isComposingTitle = useRef(false);
   const isComposingDesc = useRef(false);
   const descTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1244,25 +1245,57 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
         <TimeBlocksSection task={task} taskId={taskId} addTimeBlock={addTimeBlock} updateTimeBlock={updateTimeBlock} deleteTimeBlock={deleteTimeBlock} />
 
         <div className="detail-section">
-          <h3>Description</h3>
-          <textarea 
-            ref={descTextareaRef}
-            className="detail-description-area"
-            value={localDesc}
-            onChange={(e) => {
-              setLocalDesc(e.target.value);
-              if (!isComposingDesc.current) {
-                flushDesc(e.target.value);
-              }
-            }}
-            onCompositionStart={() => { isComposingDesc.current = true; }}
-            onCompositionEnd={(e) => {
-              isComposingDesc.current = false;
-              flushDesc((e.target as HTMLTextAreaElement).value);
-            }}
-            onBlur={(e) => { flushDesc(e.target.value); }}
-            placeholder="Add more detail to this task..."
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>Description</h3>
+            {!isEditingDesc && (
+              <button onClick={() => setIsEditingDesc(true)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem' }}>✏️ Edit</button>
+            )}
+          </div>
+          {isEditingDesc ? (
+            <textarea 
+              ref={descTextareaRef}
+              className="detail-description-area"
+              value={localDesc}
+              onChange={(e) => {
+                setLocalDesc(e.target.value);
+                if (!isComposingDesc.current) {
+                  flushDesc(e.target.value);
+                }
+              }}
+              onCompositionStart={() => { isComposingDesc.current = true; }}
+              onCompositionEnd={(e) => {
+                isComposingDesc.current = false;
+                flushDesc((e.target as HTMLTextAreaElement).value);
+              }}
+              onBlur={(e) => { 
+                flushDesc(e.target.value); 
+                setIsEditingDesc(false);
+              }}
+              autoFocus
+              placeholder="Add more detail to this task..."
+            />
+          ) : (
+            <div 
+              className="detail-description-display"
+              onClick={() => setIsEditingDesc(true)}
+              style={{ 
+                minHeight: '60px', padding: '8px', borderRadius: '6px', 
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word', cursor: 'text',
+                border: '1px solid transparent', backgroundColor: 'var(--bg-app)',
+                fontSize: '0.9rem', color: localDesc ? 'var(--text-primary)' : 'var(--text-secondary)'
+              }}
+            >
+              {localDesc ? (
+                localDesc.split(/(https?:\/\/[^\s]+)/g).map((part, i) => 
+                  part.match(/(https?:\/\/[^\s]+)/) ? 
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--brand-solid)', textDecoration: 'underline' }}>{part}</a> : 
+                    <span key={i}>{part}</span>
+                )
+              ) : (
+                "Add more detail to this task..."
+              )}
+            </div>
+          )}
         </div>
 
         <div className="detail-section">
@@ -1390,7 +1423,13 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
                     </div>
                   </div>
                 ) : (
-                  <div className="comment-text">{c.text}</div>
+                  <div className="comment-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {c.text.split(/(https?:\/\/[^\s]+)/g).map((part, i) => 
+                      part.match(/(https?:\/\/[^\s]+)/) ? 
+                        <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-solid)', textDecoration: 'underline' }}>{part}</a> : 
+                        <span key={i}>{part}</span>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
