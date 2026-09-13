@@ -44,6 +44,9 @@ export const fetchAndParseCalendar = async (
   const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 35);
   const maxDateStr = `${maxDate.getFullYear()}-${pad2(maxDate.getMonth() + 1)}-${pad2(maxDate.getDate())}`;
 
+  const maxDateBuffer = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate() + 60);
+  const maxDateBufferStr = `${maxDateBuffer.getFullYear()}-${pad2(maxDateBuffer.getMonth() + 1)}-${pad2(maxDateBuffer.getDate())}`;
+
   // ICAL.Time for the iterator – use fromData to avoid UTC conversion
   const iteratorStart = ICAL.Time.fromData({
     year: now.getFullYear(),
@@ -78,7 +81,8 @@ export const fetchAndParseCalendar = async (
     summary: string,
     baseUid: string,
     isAllDay: boolean,
-    isRecurring: boolean
+    isRecurring: boolean,
+    recurrenceIdIcal: any = null
   ) => {
     const dueDateStr = icalTimeToDateStr(startIcal);
 
@@ -86,7 +90,14 @@ export const fetchAndParseCalendar = async (
     if (dueDateStr < todayStr) return;
     if (dueDateStr > maxDateStr) return;
     
-    const occurrenceKey = isRecurring ? `${baseUid}_${dueDateStr}` : baseUid;
+    // Determine a unique occurrence key
+    // For repeating events, if we have a recurrenceId (the original date), use that to map exceptions correctly.
+    // Otherwise fallback to the actual due date string.
+    let occurrenceSuffix = '';
+    if (isRecurring) {
+      occurrenceSuffix = '_' + (recurrenceIdIcal ? icalTimeToDateStr(recurrenceIdIcal) : dueDateStr);
+    }
+    const occurrenceKey = `${baseUid}${occurrenceSuffix}`;
     const deterministicId = await generateDeterministicId(occurrenceKey);
 
     // Skip if we already processed this occurrence in this sync run
@@ -140,14 +151,36 @@ export const fetchAndParseCalendar = async (
     }
   };
 
+  // ---- Group Exceptions and Relate to Master Events ----
+  const masterEvents = new Map<string, any>();
+  const exceptions: any[] = [];
+
   for (const vevent of vevents) {
     try {
-      // Skip exception/override events – they have a RECURRENCE-ID property.
-      // These are handled automatically by getOccurrenceDetails() of the
-      // parent recurring event, so processing them here would cause duplicates.
-      if (vevent.hasProperty('recurrence-id')) continue;
-
       const event = new ICAL.Event(vevent);
+      if (event.isRecurrenceException()) {
+        exceptions.push(event);
+      } else {
+        masterEvents.set(event.uid, event);
+      }
+    } catch (err) {
+      console.warn('[calendarSync] Failed to parse event into ICAL.Event:', err);
+    }
+  }
+
+  for (const ex of exceptions) {
+    const master = masterEvents.get(ex.uid);
+    if (master) {
+      master.relateException(ex);
+    } else {
+      // Treat exception as standalone if master is missing from the export
+      masterEvents.set(ex.uid, ex);
+    }
+  }
+
+  // ---- Iterate over properly structured events ----
+  for (const event of masterEvents.values()) {
+    try {
       const summary = event.summary;
       const uid = event.uid;
       
@@ -162,8 +195,8 @@ export const fetchAndParseCalendar = async (
         let loops = 0;
         while ((next = iterator.next()) && loops < 500) {
           loops++;
-          // String-based break condition
-          if (icalTimeToDateStr(next) > maxDateStr) break;
+          // Break condition using buffer to allow shifted exceptions to be processed
+          if (icalTimeToDateStr(next) > maxDateBufferStr) break;
           const details = event.getOccurrenceDetails(next);
           await processOccurrence(
             details.startDate,
@@ -171,14 +204,15 @@ export const fetchAndParseCalendar = async (
             details.item?.summary || summary,
             uid,
             isAllDay,
-            true
+            true,
+            next
           );
         }
       } else {
         await processOccurrence(event.startDate, event.endDate, summary, uid, isAllDay, false);
       }
     } catch (err) {
-      console.warn('[calendarSync] Failed to parse event:', err);
+      console.warn('[calendarSync] Failed to process event:', err);
     }
   }
   
