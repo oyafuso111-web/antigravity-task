@@ -673,10 +673,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     get().loadTimerState();
 
     // Auto-sync calendar AFTER initial data is fully loaded to prevent duplicates
-    if (get().calendarIcalUrl && !get().lastSyncedAt) {
-      // If never synced or just loaded, sync it once. 
-      // To prevent spamming on visibility change, we only do it if it's been a while, but for now just call it.
-      // Wait, we can just check a session storage flag to only do it once per session.
+    if (get().calendarIcalUrl) {
+      // To prevent spamming on visibility change, we only do it once per session.
       if (!sessionStorage.getItem('antigravity_has_auto_synced')) {
         sessionStorage.setItem('antigravity_has_auto_synced', 'true');
         console.log('[fetchInitialData] Auto-syncing calendar...');
