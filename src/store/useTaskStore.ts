@@ -121,6 +121,7 @@ const getLocalDateStr = (d: Date = new Date()) => {
 
 // Re-entrancy guard for pauseTimer to prevent duplicate TimeBlock creation
 let _pauseTimerRunning = false;
+let _isFetchingInitialData = false;
 
 // Mapping Helpers
 // Strip undefined values to prevent Supabase from overwriting existing data with null
@@ -541,11 +542,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   fetchInitialData: async () => {
-    const user = await ensureAuthUser(get, set);
-    if (!user) {
-      console.warn('[fetchInitialData] No authenticated user – skipping fetch');
+    if (_isFetchingInitialData) {
+      console.log('[fetchInitialData] Already fetching, skipping duplicate call');
       return;
     }
+    _isFetchingInitialData = true;
+    try {
+      const user = await ensureAuthUser(get, set);
+      if (!user) {
+        console.warn('[fetchInitialData] No authenticated user – skipping fetch');
+        return;
+      }
     console.log('[fetchInitialData] Fetching data for user:', user.id);
 
     // -----------------------------------------------------------------------
@@ -594,8 +601,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       console.log(`[fetchInitialData] Local store has ${currentTasks.length} tasks`);
 
       const mergedTasks = dbTasks.map(dt => {
+        const localTask = currentTasks.find(t => t.id === dt.id);
+
+        // Preserve local state if modified within the last 15 seconds
+        if (localTask && localTask.lastModifiedLocally && Date.now() - localTask.lastModifiedLocally < 15000) {
+          return localTask;
+        }
+
         if (dt.id === activeTimerTaskId) {
-          const localTask = currentTasks.find(t => t.id === activeTimerTaskId);
           if (localTask) {
             return {
               ...dt,
@@ -669,6 +682,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         console.log('[fetchInitialData] Auto-syncing calendar...');
         get().syncCalendar().catch(console.error);
       }
+    }
+    } finally {
+      _isFetchingInitialData = false;
     }
   },
 
@@ -1036,7 +1052,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   updateTask: async (id, updates) => {
     const user = await ensureAuthUser(get, set);
     set((state) => ({
-      tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates, lastModifiedLocally: Date.now() } : t))
     }));
 
     if (user) {
@@ -1081,7 +1097,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
 
     const isMarkingComplete = !task.completed;
-    const finalTaskState = { ...task, completed: isMarkingComplete };
+    const finalTaskState = { ...task, completed: isMarkingComplete, lastModifiedLocally: Date.now() };
     const updatedTasks = tasks.map(t => t.id === id ? finalTaskState : t);
     let newTaskToSync: Task | null = null;
 

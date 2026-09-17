@@ -57,6 +57,7 @@ export interface Task {
   order: number;
   homeBucket: HomeBucket | null;
   externalId?: string;
+  lastModifiedLocally?: number;
 }
 
 export interface ProjectComment {
