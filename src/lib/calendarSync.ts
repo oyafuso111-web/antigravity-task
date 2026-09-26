@@ -15,10 +15,17 @@ const generateDeterministicId = async (str: string): Promise<string> => {
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-// Extract YYYY-MM-DD from an ICAL.Time without any timezone conversion.
-// This avoids the JST→UTC offset issue that caused all-day events to disappear.
-const icalTimeToDateStr = (t: any): string =>
-  `${t.year}-${pad2(t.month)}-${pad2(t.day)}`;
+// Extract YYYY-MM-DD from an ICAL.Time.
+// All-day events (isDate=true) have no timezone info, so use raw year/month/day.
+// Timed events may be stored in UTC; convert to local time via toJSDate() to
+// avoid the UTC→JST date shift (e.g. JST 9/28 08:00 = UTC 9/27 23:00).
+const icalTimeToDateStr = (t: any): string => {
+  if (t.isDate) {
+    return `${t.year}-${pad2(t.month)}-${pad2(t.day)}`;
+  }
+  const jsDate = t.toJSDate();
+  return `${jsDate.getFullYear()}-${pad2(jsDate.getMonth() + 1)}-${pad2(jsDate.getDate())}`;
+};
 
 export const fetchAndParseCalendar = async (
   icalUrl: string,
