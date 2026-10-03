@@ -950,41 +950,41 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
         // Smart Views: set dueDate
         if (targetViewId === 'p-today') {
-          return { ...t, dueDate: getLocalDateStr(now), homeBucket: null };
+          return { ...t, dueDate: getLocalDateStr(now), homeBucket: null, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-tomorrow') {
           const tomorrow = new Date(now);
           tomorrow.setDate(now.getDate() + 1);
-          return { ...t, dueDate: getLocalDateStr(tomorrow), homeBucket: null };
+          return { ...t, dueDate: getLocalDateStr(tomorrow), homeBucket: null, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-dayafter') {
           const dayAfter = new Date(now);
           dayAfter.setDate(now.getDate() + 2);
-          return { ...t, dueDate: getLocalDateStr(dayAfter), homeBucket: null };
+          return { ...t, dueDate: getLocalDateStr(dayAfter), homeBucket: null, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-dayafter2') {
           const dayAfter2 = new Date(now);
           dayAfter2.setDate(now.getDate() + 3);
-          return { ...t, dueDate: getLocalDateStr(dayAfter2), homeBucket: null };
+          return { ...t, dueDate: getLocalDateStr(dayAfter2), homeBucket: null, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-thisweek') {
-          return { ...t, dueDate: getLocalDateStr(now), homeBucket: null };
+          return { ...t, dueDate: getLocalDateStr(now), homeBucket: null, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-nextweek') {
           const nextWeek = new Date(now);
           nextWeek.setDate(now.getDate() + 7);
-          return { ...t, dueDate: getLocalDateStr(nextWeek), homeBucket: null };
+          return { ...t, dueDate: getLocalDateStr(nextWeek), homeBucket: null, lastModifiedLocally: Date.now() };
         }
 
         // Home Buckets: clear dueDate, set bucket
         if (targetViewId === 'p1') {
-          return { ...t, dueDate: null, homeBucket: 'inbox' as HomeBucket };
+          return { ...t, dueDate: null, homeBucket: 'inbox' as HomeBucket, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-wont-do') {
-          return { ...t, dueDate: null, homeBucket: 'wont-do' as HomeBucket };
+          return { ...t, dueDate: null, homeBucket: 'wont-do' as HomeBucket, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-do-later') {
-          return { ...t, dueDate: null, homeBucket: 'do-later' as HomeBucket };
+          return { ...t, dueDate: null, homeBucket: 'do-later' as HomeBucket, lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-waiting') {
           const currentTagIds = t.tagIds || [];
@@ -998,7 +998,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             text: `連絡待ちへ移動 (${dropDateStr})`,
             createdAt: now.toISOString()
           };
-          return { ...t, dueDate: null, homeBucket: 'waiting' as HomeBucket, tagIds: newTagIds, comments: [...(t.comments || []), dropComment] };
+          return { ...t, dueDate: null, homeBucket: 'waiting' as HomeBucket, tagIds: newTagIds, comments: [...(t.comments || []), dropComment], lastModifiedLocally: Date.now() };
         }
         if (targetViewId === 'p-memo') {
           const currentTagIds = t.tagIds || [];
@@ -1029,7 +1029,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             });
           }
 
-          return { ...t, dueDate: null, projectId: null, homeBucket: 'memo' as HomeBucket, tagIds: newTagIds, comments: newComments };
+          return { ...t, dueDate: null, projectId: null, homeBucket: 'memo' as HomeBucket, tagIds: newTagIds, comments: newComments, lastModifiedLocally: Date.now() };
         }
 
         return t;

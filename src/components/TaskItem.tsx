@@ -976,10 +976,14 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
             <input 
               type="number"
               className="estimated-minutes-input"
-              value={task.estimatedMinutes === 0 ? '' : task.estimatedMinutes}
-              onChange={e => {
+              key={`est-${task.id}-${task.estimatedMinutes}`}
+              defaultValue={task.estimatedMinutes === 0 ? '' : task.estimatedMinutes}
+              onBlur={e => {
                 const val = parseInt(e.target.value, 10);
-                updateTask(task.id, { estimatedMinutes: isNaN(val) ? 0 : val });
+                const newVal = isNaN(val) ? 0 : val;
+                if (newVal !== (task.estimatedMinutes || 0)) {
+                  updateTask(task.id, { estimatedMinutes: newVal });
+                }
               }}
               placeholder="0"
               onClick={e => e.stopPropagation()}

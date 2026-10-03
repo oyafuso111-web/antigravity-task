@@ -727,13 +727,17 @@ export const TimelineView: React.FC = () => {
                       <input
                         type="number"
                         className="tl-estimated-input"
-                        value={task.estimatedMinutes || ''}
+                        key={`est-${task.id}-${task.estimatedMinutes}`}
+                        defaultValue={task.estimatedMinutes || ''}
                         placeholder="—"
                         min={0}
                         onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
+                        onBlur={(e) => {
                           const val = parseInt(e.target.value, 10);
-                          updateTask(task.id, { estimatedMinutes: isNaN(val) ? 0 : val });
+                          const newVal = isNaN(val) ? 0 : val;
+                          if (newVal !== (task.estimatedMinutes || 0)) {
+                            updateTask(task.id, { estimatedMinutes: newVal });
+                          }
                         }}
                         title="見込み時間（分）"
                       />

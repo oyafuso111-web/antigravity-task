@@ -1029,10 +1029,14 @@ export const TaskDetailView: React.FC<Props> = ({ taskId }) => {
               <input 
                 type="number" 
                 min="0"
-                value={task.estimatedMinutes === 0 ? '' : task.estimatedMinutes} 
-                onChange={(e) => {
+                key={`est-${taskId}-${task.estimatedMinutes}`}
+                defaultValue={task.estimatedMinutes === 0 ? '' : task.estimatedMinutes} 
+                onBlur={(e) => {
                   const val = parseInt(e.target.value, 10);
-                  handleBatchUpdate({ estimatedMinutes: isNaN(val) ? 0 : val });
+                  const newVal = isNaN(val) ? 0 : val;
+                  if (newVal !== (task.estimatedMinutes || 0)) {
+                    handleBatchUpdate({ estimatedMinutes: newVal });
+                  }
                 }}
                 placeholder="0"
                 style={{
