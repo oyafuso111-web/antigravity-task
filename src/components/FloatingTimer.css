@@ -288,3 +288,87 @@
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
+
+/* ---------- paused state ---------- */
+.ft-mini-dot-paused {
+  background: #f59e0b !important;
+  animation: none !important;
+}
+
+.ft-time-value.ft-paused {
+  opacity: 0.5;
+  animation: tickFlash 1.5s ease-in-out infinite;
+}
+
+.ft-time-label.ft-paused-label {
+  color: #f59e0b;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* ---------- presets row with +/- buttons ---------- */
+.ft-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  justify-content: center;
+}
+
+.ft-presets-row .ft-presets {
+  margin-bottom: 0;
+}
+
+.ft-adjust-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  padding: 0;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ft-adjust-btn:hover {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.6);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.ft-adjust-btn:active {
+  transform: scale(0.95);
+}
+
+/* ---------- pause/resume button ---------- */
+.ft-pause-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.ft-pause-btn:hover {
+  background: rgba(245, 158, 11, 0.3);
+  color: #fff;
+}

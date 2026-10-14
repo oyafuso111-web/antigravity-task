@@ -37,6 +37,8 @@ interface TaskStore {
   timerAccumulatedAtStart: number | null;
   timerTick: number;
   lastTimerTick: number | null;
+  timerPaused: boolean;
+  timerPausedElapsed: number;
 
   user: any | null;
 
@@ -105,6 +107,8 @@ interface TaskStore {
 
   startTimer: (taskId: string) => void;
   pauseTimer: () => void;
+  pauseResumeTimer: () => void;
+  resumeTimer: () => void;
   tickTimer: () => void;
   setDailyLog: (taskId: string, dateStr: string, seconds: number) => void;
   addTimeBlock: (taskId: string, startTime: number, endTime: number) => void;
@@ -417,6 +421,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   timerAccumulatedAtStart: null,
   timerTick: Date.now(),
   lastTimerTick: null,
+  timerPaused: false,
+  timerPausedElapsed: 0,
   calendarIcalUrl: localStorage.getItem('antigravity_calendar_url') || null,
   lastSyncedAt: localStorage.getItem('antigravity_last_synced') ? parseInt(localStorage.getItem('antigravity_last_synced')!, 10) : null,
 
@@ -1477,7 +1483,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       activeTimerTaskId: taskId,
       timerStartTimestamp: startTime,
       timerAccumulatedAtStart: accAtStart,
-      lastTimerTick: startTime
+      lastTimerTick: startTime,
+      timerPaused: false,
+      timerPausedElapsed: 0,
     }));
 
     sessionStorage.setItem('activeTimerTaskId', taskId);
@@ -1562,6 +1570,31 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   tickTimer: () => set({ timerTick: Date.now() }),
+
+  pauseResumeTimer: () => {
+    const { timerPaused, activeTimerTaskId, timerStartTimestamp } = get();
+    if (!activeTimerTaskId || timerStartTimestamp == null) return;
+
+    if (!timerPaused) {
+      // Pause: freeze the elapsed seconds
+      const elapsed = Math.floor((Date.now() - timerStartTimestamp) / 1000);
+      set({ timerPaused: true, timerPausedElapsed: elapsed });
+    } else {
+      // Resume: adjust timerStartTimestamp so elapsed picks up from where it left off
+      get().resumeTimer();
+    }
+  },
+
+  resumeTimer: () => {
+    const { timerPausedElapsed } = get();
+    const now = Date.now();
+    set({
+      timerPaused: false,
+      timerStartTimestamp: now - timerPausedElapsed * 1000,
+      lastTimerTick: now,
+    });
+    sessionStorage.setItem('timerStartTimestamp', (now - timerPausedElapsed * 1000).toString());
+  },
 
   setDailyLog: async (taskId, dateStr, seconds) => {
     const user = await ensureAuthUser(get, set);

@@ -67,7 +67,7 @@ declare global {
 
 // ─── Window dimensions ────────────────────────────────────
 const PIP_FULL_W = 340;
-const PIP_FULL_H = 240;
+const PIP_FULL_H = 270;
 const PIP_MINI_W = 220;
 const PIP_MINI_H = 48;
 
@@ -79,6 +79,9 @@ export function FloatingTimer() {
     timerTick,
     tasks,
     pauseTimer,
+    timerPaused,
+    timerPausedElapsed,
+    pauseResumeTimer,
   } = useTaskStore();
 
   const [minimised, setMinimised] = useState(false);
@@ -106,9 +109,11 @@ export function FloatingTimer() {
   // ── Derived values ──
   const task = tasks.find((t) => t.id === activeTimerTaskId);
   const elapsedFromStart =
-    timerStartTimestamp != null
-      ? Math.floor((timerTick - timerStartTimestamp) / 1000)
-      : 0;
+    timerPaused
+      ? timerPausedElapsed
+      : timerStartTimestamp != null
+        ? Math.floor((timerTick - timerStartTimestamp) / 1000)
+        : 0;
   const countdownRemaining =
     countdownTarget != null ? countdownTarget - elapsedFromStart : null;
   const isOvertime = countdownRemaining != null && countdownRemaining < 0;
@@ -256,6 +261,25 @@ export function FloatingTimer() {
     hasNotifiedRef.current = false;
   }, []);
 
+  const adjustCountdown = useCallback(
+    (deltaMinutes: number) => {
+      if (countdownTarget == null) return;
+      const newTarget = countdownTarget + deltaMinutes * 60;
+      // Don't let it go below current elapsed + 60s (at least 1 min remaining)
+      const minTarget = elapsedFromStart + 60;
+      setCountdownTarget(Math.max(newTarget, minTarget));
+      // Update the preset label to reflect adjusted total minutes
+      const totalMinutes = Math.round(Math.max(newTarget, minTarget) / 60);
+      setCountdownPreset(totalMinutes);
+      hasNotifiedRef.current = false;
+    },
+    [countdownTarget, elapsedFromStart],
+  );
+
+  const handlePauseResume = useCallback(() => {
+    pauseResumeTimer();
+  }, [pauseResumeTimer]);
+
   const handleStop = useCallback(() => {
     pauseTimer();
   }, [pauseTimer]);
@@ -266,9 +290,11 @@ export function FloatingTimer() {
   }
 
   const displaySeconds = countdownRemaining != null ? countdownRemaining : elapsedFromStart;
-  const displayLabel = countdownRemaining != null
-    ? isOvertime ? 'OVERTIME' : `${countdownPreset}min タイマー`
-    : 'ELAPSED';
+  const displayLabel = timerPaused
+    ? '⏸ PAUSED'
+    : countdownRemaining != null
+      ? isOvertime ? 'OVERTIME' : `${countdownPreset}min タイマー`
+      : 'ELAPSED';
 
   return createPortal(
     <div
@@ -278,7 +304,7 @@ export function FloatingTimer() {
     >
       {/* Mini pill display */}
       <div className="ft-mini-display">
-        <span className="ft-mini-dot" />
+        <span className={`ft-mini-dot${timerPaused ? ' ft-mini-dot-paused' : ''}`} />
         <span className="ft-mini-task-name" title={task.title}>
           {task.title}
         </span>
@@ -304,22 +330,44 @@ export function FloatingTimer() {
         </div>
 
         <div className="ft-time-display">
-          <div className={`ft-time-value${isOvertime ? ' ft-overtime' : ''}`}>
+          <div className={`ft-time-value${isOvertime ? ' ft-overtime' : ''}${timerPaused ? ' ft-paused' : ''}`}>
             {formatTime(displaySeconds)}
           </div>
-          <div className="ft-time-label">{displayLabel}</div>
+          <div className={`ft-time-label${timerPaused ? ' ft-paused-label' : ''}`}>{displayLabel}</div>
         </div>
 
-        <div className="ft-presets">
-          {[5, 10, 15, 25].map((m) => (
+        <div className="ft-presets-row">
+          {countdownTarget != null && (
             <button
-              key={m}
-              className={`ft-preset-btn${countdownPreset === m ? ' ft-preset-active' : ''}`}
-              onClick={() => handlePreset(m)}
+              className="ft-adjust-btn"
+              onClick={() => adjustCountdown(-1)}
+              title="1分減らす"
+              aria-label="1分減らす"
             >
-              {m}分
+              −
             </button>
-          ))}
+          )}
+          <div className="ft-presets">
+            {[5, 10, 15, 25].map((m) => (
+              <button
+                key={m}
+                className={`ft-preset-btn${countdownPreset === m ? ' ft-preset-active' : ''}`}
+                onClick={() => handlePreset(m)}
+              >
+                {m}分
+              </button>
+            ))}
+          </div>
+          {countdownTarget != null && (
+            <button
+              className="ft-adjust-btn"
+              onClick={() => adjustCountdown(1)}
+              title="1分追加"
+              aria-label="1分追加"
+            >
+              ＋
+            </button>
+          )}
         </div>
 
         <div className="ft-controls">
@@ -328,6 +376,9 @@ export function FloatingTimer() {
               ✕ リセット
             </button>
           )}
+          <button className="ft-pause-btn" onClick={handlePauseResume}>
+            {timerPaused ? '▶ 再開' : '⏸ 一時停止'}
+          </button>
           <button className="ft-stop-btn" onClick={handleStop}>
             ■ 停止
           </button>
