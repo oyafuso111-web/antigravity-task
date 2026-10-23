@@ -51,7 +51,7 @@ const getBlockColor = (task: Task, projects: { id: string; color: string }[]): s
 };
 
 export const TimeTrackingCalendarView: React.FC = () => {
-  const { tasks, projects, weekStartsOn, setSelectedTaskId, activeTimerTaskId, timerStartTimestamp, timerTick } = useTaskStore();
+  const { tasks, projects, weekStartsOn, setSelectedTaskId, activeTimerTaskId, timerStartTimestamp, timerTick, timerPaused, timerPausedElapsed } = useTaskStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const gridRef = useRef<HTMLDivElement>(null);
   const [nowTop, setNowTop] = useState(0);
@@ -104,7 +104,9 @@ export const TimeTrackingCalendarView: React.FC = () => {
     if (activeTimerTaskId && timerStartTimestamp) {
       const activeTask = tasks.find(t => t.id === activeTimerTaskId);
       if (activeTask) {
-        const now = Date.now();
+        const endTime = timerPaused
+          ? timerStartTimestamp + timerPausedElapsed * 1000
+          : Date.now();
         const startDate = new Date(timerStartTimestamp);
         const key = format(startDate, 'yyyy-MM-dd');
         if (map[key] !== undefined) {
@@ -112,7 +114,7 @@ export const TimeTrackingCalendarView: React.FC = () => {
             block: {
               id: '__active__',
               startTime: timerStartTimestamp,
-              endTime: now,
+              endTime,
             },
             task: activeTask,
             isActive: true,

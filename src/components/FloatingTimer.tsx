@@ -67,9 +67,14 @@ declare global {
 
 // ─── Window dimensions ────────────────────────────────────
 const PIP_FULL_W = 340;
-const PIP_FULL_H = 270;
+const PIP_FULL_H = 300;
 const PIP_MINI_W = 220;
 const PIP_MINI_H = 48;
+
+// ─── Strict mode notification interval (seconds) ─────────
+const STRICT_NOTIFY_INTERVAL = 300; // 5 minutes
+const STRICT_PEEK_DURATION = 1000; // 1 second peek
+const STRICT_FLASH_DURATION = 1200; // flash animation duration
 
 // ─── component ────────────────────────────────────────────
 export function FloatingTimer() {
@@ -95,6 +100,15 @@ export function FloatingTimer() {
   // Generation counter: bump to trigger window re-creation
   const [windowGen, setWindowGen] = useState(0);
 
+  // ── Strict mode state ──
+  const [strictMode, setStrictMode] = useState(true); // default: strict
+  const [isFlashing, setIsFlashing] = useState(false);
+  const lastNotifyElapsedRef = useRef(0); // last elapsed second when we notified
+  const peekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether we auto-expanded for the 1-min-remaining warning
+  const hasAutoExpandedRef = useRef(false);
+
   const prevTaskIdRef = useRef(activeTimerTaskId);
 
   // Reset state during render when task changes
@@ -104,6 +118,8 @@ export function FloatingTimer() {
     if (countdownTarget !== null) setCountdownTarget(null);
     if (countdownPreset !== null) setCountdownPreset(null);
     hasNotifiedRef.current = false;
+    lastNotifyElapsedRef.current = 0;
+    hasAutoExpandedRef.current = false;
   }
 
   // ── Derived values ──
@@ -117,6 +133,106 @@ export function FloatingTimer() {
   const countdownRemaining =
     countdownTarget != null ? countdownTarget - elapsedFromStart : null;
   const isOvertime = countdownRemaining != null && countdownRemaining < 0;
+
+  // ── Helper: bring PiP window to foreground ──
+  const focusPipWindow = useCallback(() => {
+    try {
+      const win = pipWindowRef.current;
+      if (win && !win.closed) {
+        win.focus();
+      }
+    } catch { /* cross-origin or closed */ }
+  }, []);
+
+  // ── Helper: trigger flash animation on the container ──
+  const triggerFlash = useCallback(() => {
+    if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+    setIsFlashing(true);
+    flashTimeoutRef.current = setTimeout(() => {
+      setIsFlashing(false);
+      flashTimeoutRef.current = null;
+    }, STRICT_FLASH_DURATION);
+  }, []);
+
+  // ── Strict mode: 5-minute periodic notification ──
+  useEffect(() => {
+    if (!strictMode || !countdownTarget || timerPaused || !activeTimerTaskId) return;
+
+    // Calculate which 5-minute checkpoint we're at
+    const checkpointsPassed = Math.floor(elapsedFromStart / STRICT_NOTIFY_INTERVAL);
+    const lastNotifiedCheckpoint = Math.floor(lastNotifyElapsedRef.current / STRICT_NOTIFY_INTERVAL);
+
+    if (checkpointsPassed > lastNotifiedCheckpoint && checkpointsPassed > 0) {
+      lastNotifyElapsedRef.current = elapsedFromStart;
+
+      focusPipWindow();
+
+      if (minimised) {
+        // Briefly expand for 1 second then minimize again
+        setMinimised(false);
+        setWindowGen((g) => g + 1);
+        if (peekTimeoutRef.current) clearTimeout(peekTimeoutRef.current);
+        peekTimeoutRef.current = setTimeout(() => {
+          setMinimised(true);
+          setWindowGen((g) => g + 1);
+          peekTimeoutRef.current = null;
+        }, STRICT_PEEK_DURATION);
+      } else {
+        // Flash the window
+        triggerFlash();
+      }
+    }
+  }, [elapsedFromStart, strictMode, countdownTarget, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash]);
+
+  // ── Strict mode: auto-expand at 1 minute remaining ──
+  useEffect(() => {
+    if (!strictMode || countdownRemaining == null || timerPaused || !activeTimerTaskId) return;
+
+    if (countdownRemaining <= 60 && countdownRemaining > 0 && !hasAutoExpandedRef.current) {
+      hasAutoExpandedRef.current = true;
+      if (minimised) {
+        // Clear any peek timeout
+        if (peekTimeoutRef.current) {
+          clearTimeout(peekTimeoutRef.current);
+          peekTimeoutRef.current = null;
+        }
+        setMinimised(false);
+        setWindowGen((g) => g + 1);
+      }
+      focusPipWindow();
+    }
+  }, [countdownRemaining, strictMode, timerPaused, activeTimerTaskId, minimised, focusPipWindow]);
+
+  // ── Strict mode: continuous flash during overtime ──
+  useEffect(() => {
+    if (!strictMode || !isOvertime || timerPaused) {
+      return;
+    }
+    // Re-trigger flash every STRICT_FLASH_DURATION ms
+    const intervalId = setInterval(() => {
+      setIsFlashing(false);
+      // Force re-trigger by toggling off then on
+      requestAnimationFrame(() => {
+        setIsFlashing(true);
+      });
+      focusPipWindow();
+    }, STRICT_FLASH_DURATION + 200);
+
+    // Start initial flash
+    setIsFlashing(true);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [strictMode, isOvertime, timerPaused, focusPipWindow]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (peekTimeoutRef.current) clearTimeout(peekTimeoutRef.current);
+      if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+    };
+  }, []);
 
   // ── Window lifecycle (single effect) ──
   useEffect(() => {
@@ -230,14 +346,15 @@ export function FloatingTimer() {
     } catch { /* closed */ }
   }, [timerTick, task, countdownRemaining, elapsedFromStart]);
 
-  // Notification trigger
+  // Notification trigger (completion sound)
   useEffect(() => {
     if (countdownRemaining !== null && countdownRemaining <= 0 && !hasNotifiedRef.current) {
       hasNotifiedRef.current = true;
       const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
       playNotificationBeep(targetWin);
+      focusPipWindow();
     }
-  }, [countdownRemaining]);
+  }, [countdownRemaining, focusPipWindow]);
 
   // ── Handlers ──
   const handlePreset = useCallback(
@@ -246,11 +363,15 @@ export function FloatingTimer() {
         setCountdownTarget(null);
         setCountdownPreset(null);
         hasNotifiedRef.current = false;
+        hasAutoExpandedRef.current = false;
+        lastNotifyElapsedRef.current = 0;
         return;
       }
       setCountdownTarget(elapsedFromStart + minutes * 60);
       setCountdownPreset(minutes);
       hasNotifiedRef.current = false;
+      hasAutoExpandedRef.current = false;
+      lastNotifyElapsedRef.current = elapsedFromStart;
     },
     [elapsedFromStart, countdownPreset],
   );
@@ -259,6 +380,9 @@ export function FloatingTimer() {
     setCountdownTarget(null);
     setCountdownPreset(null);
     hasNotifiedRef.current = false;
+    hasAutoExpandedRef.current = false;
+    lastNotifyElapsedRef.current = 0;
+    setIsFlashing(false);
   }, []);
 
   const adjustCountdown = useCallback(
@@ -272,6 +396,7 @@ export function FloatingTimer() {
       const totalMinutes = Math.round(Math.max(newTarget, minTarget) / 60);
       setCountdownPreset(totalMinutes);
       hasNotifiedRef.current = false;
+      hasAutoExpandedRef.current = false;
     },
     [countdownTarget, elapsedFromStart],
   );
@@ -281,8 +406,20 @@ export function FloatingTimer() {
   }, [pauseResumeTimer]);
 
   const handleStop = useCallback(() => {
+    setIsFlashing(false);
     pauseTimer();
   }, [pauseTimer]);
+
+  const toggleStrictMode = useCallback(() => {
+    setStrictMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        // Switching to normal mode: stop flashing
+        setIsFlashing(false);
+      }
+      return next;
+    });
+  }, []);
 
   // ── Guard ──
   if (!activeTimerTaskId || !task || !portalReady || !containerRef.current) {
@@ -296,9 +433,18 @@ export function FloatingTimer() {
       ? isOvertime ? 'OVERTIME' : `${countdownPreset}min タイマー`
       : 'ELAPSED';
 
+  // Build container class names
+  const containerClasses = [
+    'floating-timer',
+    'ft-popup-mode',
+    minimised ? 'ft-minimised' : '',
+    isFlashing && strictMode ? 'ft-strict-flash' : '',
+    isOvertime && strictMode ? 'ft-strict-overtime' : '',
+  ].filter(Boolean).join(' ');
+
   return createPortal(
     <div
-      className={`floating-timer ft-popup-mode${minimised ? ' ft-minimised' : ''}`}
+      className={containerClasses}
       onClick={minimised ? handleExpand : undefined}
       id="floating-timer"
     >
@@ -318,6 +464,14 @@ export function FloatingTimer() {
             {task.title}
           </span>
           <div className="ft-header-actions">
+            <button
+              className={`ft-mode-btn${strictMode ? ' ft-mode-strict' : ' ft-mode-normal'}`}
+              onClick={toggleStrictMode}
+              title={strictMode ? '通常モードに切り替え' : '厳格モードに切り替え'}
+              aria-label={strictMode ? '通常モードに切り替え' : '厳格モードに切り替え'}
+            >
+              {strictMode ? '🔔 厳格' : '🔕 通常'}
+            </button>
             <button
               className="ft-icon-btn"
               onClick={handleMinimise}

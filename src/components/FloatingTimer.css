@@ -34,6 +34,66 @@
   100% { opacity: 1; }
 }
 
+/* --- strict mode flash animation --- */
+@keyframes strictFlash {
+  0% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  15% {
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.6) 0%, rgba(59, 62, 201, 0.5) 100%);
+    box-shadow: 0 0 24px 8px rgba(99, 102, 241, 0.5), inset 0 0 20px rgba(99, 102, 241, 0.15);
+  }
+  30% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  50% {
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.5) 0%, rgba(59, 62, 201, 0.4) 100%);
+    box-shadow: 0 0 20px 6px rgba(99, 102, 241, 0.4), inset 0 0 16px rgba(99, 102, 241, 0.1);
+  }
+  70% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  85% {
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.35) 0%, rgba(59, 62, 201, 0.3) 100%);
+    box-shadow: 0 0 16px 4px rgba(99, 102, 241, 0.3);
+  }
+  100% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+}
+
+/* --- strict mode overtime flash (red) --- */
+@keyframes strictOvertimeFlash {
+  0% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  20% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.5) 0%, rgba(185, 28, 28, 0.4) 100%);
+    box-shadow: 0 0 24px 8px rgba(239, 68, 68, 0.45), inset 0 0 20px rgba(239, 68, 68, 0.12);
+  }
+  40% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  60% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.4) 0%, rgba(185, 28, 28, 0.3) 100%);
+    box-shadow: 0 0 20px 6px rgba(239, 68, 68, 0.35);
+  }
+  80% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  100% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.3) 0%, rgba(185, 28, 28, 0.25) 100%);
+    box-shadow: 0 0 16px 4px rgba(239, 68, 68, 0.3);
+  }
+}
+
 /* ---------- container (popup mode fills the popup window) ---------- */
 .floating-timer.ft-popup-mode {
   /* Fill the entire popup window instead of fixed positioning */
@@ -60,6 +120,16 @@
   user-select: none;
   display: flex;
   flex-direction: column;
+}
+
+/* ---------- strict mode flash state ---------- */
+.floating-timer.ft-popup-mode.ft-strict-flash {
+  animation: strictFlash 1.2s ease-in-out 1 !important;
+}
+
+/* ---------- strict mode overtime continuous flash ---------- */
+.floating-timer.ft-popup-mode.ft-strict-overtime {
+  animation: strictOvertimeFlash 1.4s ease-in-out infinite !important;
 }
 
 /* ---------- minimised state ---------- */
@@ -137,7 +207,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 240px;
+  max-width: 160px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -166,6 +236,42 @@
 .ft-icon-btn:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* ---------- mode toggle button (厳格/通常) ---------- */
+.ft-mode-btn {
+  border: none;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.ft-mode-btn.ft-mode-strict {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.ft-mode-btn.ft-mode-strict:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #fff;
+}
+
+.ft-mode-btn.ft-mode-normal {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ft-mode-btn.ft-mode-normal:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* ---------- time display ---------- */

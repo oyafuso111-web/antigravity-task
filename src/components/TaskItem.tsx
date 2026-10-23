@@ -39,6 +39,8 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
     highlightedTaskId,
     timerStartTimestamp,
     timerTick,
+    timerPaused,
+    timerPausedElapsed,
     deleteTask
   } = useTaskStore();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
@@ -149,7 +151,7 @@ export const TaskItem: React.FC<Props> = ({ task }) => {
   const isTimerActive = activeTimerTaskId === task.id;
   
   const liveDelta = (isTimerActive && timerStartTimestamp) 
-    ? Math.floor((timerTick - timerStartTimestamp) / 1000) 
+    ? (timerPaused ? timerPausedElapsed : Math.floor((timerTick - timerStartTimestamp) / 1000))
     : 0;
   const todayTimeSecs = (task.dailyLogs?.[todayStr] || 0) + liveDelta;
   const totalDisplayTime = task.accumulatedTime + liveDelta;

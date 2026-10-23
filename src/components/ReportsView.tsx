@@ -67,7 +67,7 @@ const ProjectRow: React.FC<{ data: ProjectRowProps }> = ({ data }) => {
 };
 
 export const ReportsView: React.FC = () => {
-  const { tasks, projects, activeTimerTaskId, timerStartTimestamp, timerTick } = useTaskStore();
+  const { tasks, projects, activeTimerTaskId, timerStartTimestamp, timerTick, timerPaused, timerPausedElapsed } = useTaskStore();
   const [period, setPeriod] = useState<Period>('weekly');
   const [periodOffset, setPeriodOffset] = useState(0);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -168,7 +168,7 @@ export const ReportsView: React.FC = () => {
     
     let taskTimeInPeriod = 0;
     const isMeActive = task.id === activeTimerTaskId;
-    const liveDelta = (isMeActive && timerStartTimestamp) ? Math.floor((timerTick - timerStartTimestamp) / 1000) : 0;
+    const liveDelta = (isMeActive && timerStartTimestamp) ? (timerPaused ? timerPausedElapsed : Math.floor((timerTick - timerStartTimestamp) / 1000)) : 0;
     const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     if (task.dailyLogs && Object.keys(task.dailyLogs).length > 0) {
