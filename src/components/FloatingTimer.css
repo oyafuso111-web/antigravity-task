@@ -34,35 +34,22 @@
   100% { opacity: 1; }
 }
 
-/* --- strict mode flash animation --- */
+/* --- strict mode flash animation (5-min checkpoint, dramatic) --- */
 @keyframes strictFlash {
   0% {
     background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
     box-shadow: none;
-  }
-  15% {
-    background: linear-gradient(145deg, rgba(99, 102, 241, 0.6) 0%, rgba(59, 62, 201, 0.5) 100%);
-    box-shadow: 0 0 24px 8px rgba(99, 102, 241, 0.5), inset 0 0 20px rgba(99, 102, 241, 0.15);
-  }
-  30% {
-    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
-    box-shadow: none;
+    transform: scale(1);
   }
   50% {
-    background: linear-gradient(145deg, rgba(99, 102, 241, 0.5) 0%, rgba(59, 62, 201, 0.4) 100%);
-    box-shadow: 0 0 20px 6px rgba(99, 102, 241, 0.4), inset 0 0 16px rgba(99, 102, 241, 0.1);
-  }
-  70% {
-    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
-    box-shadow: none;
-  }
-  85% {
-    background: linear-gradient(145deg, rgba(99, 102, 241, 0.35) 0%, rgba(59, 62, 201, 0.3) 100%);
-    box-shadow: 0 0 16px 4px rgba(99, 102, 241, 0.3);
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.75) 0%, rgba(139, 92, 246, 0.65) 100%);
+    box-shadow: 0 0 36px 12px rgba(99, 102, 241, 0.6), inset 0 0 28px rgba(139, 92, 246, 0.2);
+    transform: scale(1.03);
   }
   100% {
     background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
     box-shadow: none;
+    transform: scale(1);
   }
 }
 
@@ -122,9 +109,9 @@
   flex-direction: column;
 }
 
-/* ---------- strict mode flash state ---------- */
+/* ---------- strict mode flash state (repeats 5x for visibility) ---------- */
 .floating-timer.ft-popup-mode.ft-strict-flash {
-  animation: strictFlash 1.2s ease-in-out 1 !important;
+  animation: strictFlash 0.65s ease-in-out 5 !important;
 }
 
 /* ---------- strict mode overtime continuous flash ---------- */
@@ -483,27 +470,22 @@
    Strict Mode – Mini-pill notification styles
    ======================================== */
 
-/* --- 5-min checkpoint: purple flash on mini pill --- */
+/* --- 5-min checkpoint: purple flash on mini pill (dramatic) --- */
 @keyframes miniPeekFlash {
   0% {
     background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
     box-shadow: none;
-  }
-  20% {
-    background: linear-gradient(145deg, rgba(99, 102, 241, 0.55) 0%, rgba(59, 62, 201, 0.45) 100%);
-    box-shadow: 0 0 18px 6px rgba(99, 102, 241, 0.45), inset 0 0 12px rgba(99, 102, 241, 0.15);
+    transform: scale(1);
   }
   50% {
-    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
-    box-shadow: none;
-  }
-  70% {
-    background: linear-gradient(145deg, rgba(99, 102, 241, 0.35) 0%, rgba(59, 62, 201, 0.3) 100%);
-    box-shadow: 0 0 12px 4px rgba(99, 102, 241, 0.3);
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.7) 0%, rgba(139, 92, 246, 0.6) 100%);
+    box-shadow: 0 0 24px 8px rgba(99, 102, 241, 0.55), inset 0 0 16px rgba(139, 92, 246, 0.18);
+    transform: scale(1.05);
   }
   100% {
     background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
     box-shadow: none;
+    transform: scale(1);
   }
 }
 
@@ -547,9 +529,9 @@
   }
 }
 
-/* --- Mini pill peek state (5-min checkpoint) --- */
+/* --- Mini pill peek state (5-min checkpoint, repeats 5x) --- */
 .ft-mini-display.ft-mini-peek {
-  animation: miniPeekFlash 1.2s ease-in-out 1;
+  animation: miniPeekFlash 0.65s ease-in-out 5;
   border-radius: 4px;
 }
 

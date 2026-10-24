@@ -49,23 +49,35 @@ const playNotificationBeep = (win: Window) => {
   }
 };
 
-// Short alert beep for 5-min checkpoints
+// Two-tone alert beep for 5-min checkpoints (louder, more noticeable)
 const playCheckpointBeep = (win: Window) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = win as any;
     const AudioCtx = w.AudioContext || w.webkitAudioContext;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(660, ctx.currentTime);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.25);
+    // First tone (ding)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, ctx.currentTime);
+    gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.25);
+    // Second tone (dong – higher pitch after short pause)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1046.5, ctx.currentTime + 0.35);
+    gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.35);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+    osc2.start(ctx.currentTime + 0.35);
+    osc2.stop(ctx.currentTime + 0.6);
   } catch {
     // Silently ignore
   }
@@ -95,7 +107,7 @@ const PIP_MINI_H = 48;
 
 // ─── Strict mode constants ───────────────────────────────
 const STRICT_NOTIFY_INTERVAL = 300; // 5 minutes
-const STRICT_FLASH_DURATION = 1200; // flash animation duration
+const STRICT_FLASH_DURATION = 3500; // 5 flashes × 0.65s + margin
 
 // ─── component ────────────────────────────────────────────
 export function FloatingTimer() {
@@ -208,8 +220,10 @@ export function FloatingTimer() {
         const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
         playCheckpointBeep(targetWin);
       } else {
-        // Flash the full window
+        // Flash the full window + play beep
         triggerFlash();
+        const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
+        playCheckpointBeep(targetWin);
       }
     }
   }, [elapsedFromStart, strictMode, countdownTarget, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash, triggerPeek]);
