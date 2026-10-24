@@ -49,6 +49,28 @@ const playNotificationBeep = (win: Window) => {
   }
 };
 
+// Short alert beep for 5-min checkpoints
+const playCheckpointBeep = (win: Window) => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = win as any;
+    const AudioCtx = w.AudioContext || w.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(660, ctx.currentTime);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+  } catch {
+    // Silently ignore
+  }
+};
+
 // ─── PiP API types ────────────────────────────────────────
 interface DocumentPictureInPictureOptions {
   width?: number;
@@ -71,9 +93,8 @@ const PIP_FULL_H = 300;
 const PIP_MINI_W = 220;
 const PIP_MINI_H = 48;
 
-// ─── Strict mode notification interval (seconds) ─────────
+// ─── Strict mode constants ───────────────────────────────
 const STRICT_NOTIFY_INTERVAL = 300; // 5 minutes
-const STRICT_PEEK_DURATION = 1000; // 1 second peek
 const STRICT_FLASH_DURATION = 1200; // flash animation duration
 
 // ─── component ────────────────────────────────────────────
@@ -97,16 +118,19 @@ export function FloatingTimer() {
   const pipWindowRef = useRef<Window | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [portalReady, setPortalReady] = useState(false);
-  // Generation counter: bump to trigger window re-creation
+  // Generation counter: bump to trigger window re-creation (user-initiated only)
   const [windowGen, setWindowGen] = useState(0);
 
   // ── Strict mode state ──
   const [strictMode, setStrictMode] = useState(true); // default: strict
   const [isFlashing, setIsFlashing] = useState(false);
-  const lastNotifyElapsedRef = useRef(0); // last elapsed second when we notified
+  // Urgent mini: the mini pill becomes red/flashing when <= 1 min remaining
+  const [isUrgentMini, setIsUrgentMini] = useState(false);
+  // Peek: briefly highlight the mini pill at 5-min checkpoints
+  const [isPeeking, setIsPeeking] = useState(false);
+  const lastNotifyElapsedRef = useRef(0);
   const peekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track whether we auto-expanded for the 1-min-remaining warning
   const hasAutoExpandedRef = useRef(false);
 
   const prevTaskIdRef = useRef(activeTimerTaskId);
@@ -120,6 +144,9 @@ export function FloatingTimer() {
     hasNotifiedRef.current = false;
     lastNotifyElapsedRef.current = 0;
     hasAutoExpandedRef.current = false;
+    setIsUrgentMini(false);
+    setIsPeeking(false);
+    setIsFlashing(false);
   }
 
   // ── Derived values ──
@@ -144,7 +171,7 @@ export function FloatingTimer() {
     } catch { /* cross-origin or closed */ }
   }, []);
 
-  // ── Helper: trigger flash animation on the container ──
+  // ── Helper: trigger flash animation (full-size window) ──
   const triggerFlash = useCallback(() => {
     if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
     setIsFlashing(true);
@@ -154,77 +181,91 @@ export function FloatingTimer() {
     }, STRICT_FLASH_DURATION);
   }, []);
 
+  // ── Helper: trigger peek animation (mini window) ──
+  const triggerPeek = useCallback(() => {
+    if (peekTimeoutRef.current) clearTimeout(peekTimeoutRef.current);
+    setIsPeeking(true);
+    peekTimeoutRef.current = setTimeout(() => {
+      setIsPeeking(false);
+      peekTimeoutRef.current = null;
+    }, STRICT_FLASH_DURATION);
+  }, []);
+
   // ── Strict mode: 5-minute periodic notification ──
   useEffect(() => {
     if (!strictMode || !countdownTarget || timerPaused || !activeTimerTaskId) return;
 
-    // Calculate which 5-minute checkpoint we're at
     const checkpointsPassed = Math.floor(elapsedFromStart / STRICT_NOTIFY_INTERVAL);
     const lastNotifiedCheckpoint = Math.floor(lastNotifyElapsedRef.current / STRICT_NOTIFY_INTERVAL);
 
     if (checkpointsPassed > lastNotifiedCheckpoint && checkpointsPassed > 0) {
       lastNotifyElapsedRef.current = elapsedFromStart;
-
       focusPipWindow();
 
       if (minimised) {
-        // Briefly expand for 1 second then minimize again
-        setMinimised(false);
-        setWindowGen((g) => g + 1);
-        if (peekTimeoutRef.current) clearTimeout(peekTimeoutRef.current);
-        peekTimeoutRef.current = setTimeout(() => {
-          setMinimised(true);
-          setWindowGen((g) => g + 1);
-          peekTimeoutRef.current = null;
-        }, STRICT_PEEK_DURATION);
+        // Flash the mini pill to draw attention + short beep
+        triggerPeek();
+        const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
+        playCheckpointBeep(targetWin);
       } else {
-        // Flash the window
+        // Flash the full window
         triggerFlash();
       }
     }
-  }, [elapsedFromStart, strictMode, countdownTarget, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash]);
+  }, [elapsedFromStart, strictMode, countdownTarget, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash, triggerPeek]);
 
-  // ── Strict mode: auto-expand at 1 minute remaining ──
+  // ── Strict mode: urgent mini at 1 minute remaining ──
   useEffect(() => {
     if (!strictMode || countdownRemaining == null || timerPaused || !activeTimerTaskId) return;
 
     if (countdownRemaining <= 60 && countdownRemaining > 0 && !hasAutoExpandedRef.current) {
       hasAutoExpandedRef.current = true;
-      if (minimised) {
-        // Clear any peek timeout
-        if (peekTimeoutRef.current) {
-          clearTimeout(peekTimeoutRef.current);
-          peekTimeoutRef.current = null;
-        }
-        setMinimised(false);
-        setWindowGen((g) => g + 1);
-      }
       focusPipWindow();
+
+      if (minimised) {
+        // Can't resize the window programmatically, so make the mini pill
+        // visually urgent with red flashing + a beep
+        setIsUrgentMini(true);
+        const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
+        playCheckpointBeep(targetWin);
+      } else {
+        // Full window is visible — trigger flash
+        triggerFlash();
+      }
     }
-  }, [countdownRemaining, strictMode, timerPaused, activeTimerTaskId, minimised, focusPipWindow]);
+  }, [countdownRemaining, strictMode, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash]);
 
   // ── Strict mode: continuous flash during overtime ──
   useEffect(() => {
     if (!strictMode || !isOvertime || timerPaused) {
       return;
     }
-    // Re-trigger flash every STRICT_FLASH_DURATION ms
-    const intervalId = setInterval(() => {
-      setIsFlashing(false);
-      // Force re-trigger by toggling off then on
-      requestAnimationFrame(() => {
-        setIsFlashing(true);
-      });
-      focusPipWindow();
-    }, STRICT_FLASH_DURATION + 200);
+    // Also set urgent mini so mini pill keeps flashing red
+    setIsUrgentMini(true);
 
-    // Start initial flash
-    setIsFlashing(true);
+    if (!minimised) {
+      // Re-trigger flash every cycle
+      const intervalId = setInterval(() => {
+        setIsFlashing(false);
+        requestAnimationFrame(() => {
+          setIsFlashing(true);
+        });
+        focusPipWindow();
+      }, STRICT_FLASH_DURATION + 200);
 
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [strictMode, isOvertime, timerPaused, focusPipWindow]);
+      setIsFlashing(true);
+
+      return () => {
+        clearInterval(intervalId);
+      };
+    } else {
+      // Mini mode: focus periodically
+      const intervalId = setInterval(() => {
+        focusPipWindow();
+      }, 3000);
+      return () => clearInterval(intervalId);
+    }
+  }, [strictMode, isOvertime, timerPaused, focusPipWindow, minimised]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -234,7 +275,7 @@ export function FloatingTimer() {
     };
   }, []);
 
-  // ── Window lifecycle (single effect) ──
+  // ── Window lifecycle (re-created on task change or user-initiated windowGen bump) ──
   useEffect(() => {
     // Close existing window first
     if (pipWindowRef.current && !pipWindowRef.current.closed) {
@@ -321,11 +362,11 @@ export function FloatingTimer() {
     return () => {
       cancelled = true;
     };
-    // windowGen triggers re-creation when minimise toggles
+    // windowGen triggers re-creation for user-initiated minimize/expand
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTimerTaskId, windowGen]);
 
-  // ── Minimise toggle → bump generation to re-create window ──
+  // ── User-initiated Minimise / Expand (has user gesture → window re-creation OK) ──
   const handleMinimise = useCallback(() => {
     setMinimised(true);
     setWindowGen((g) => g + 1);
@@ -333,6 +374,8 @@ export function FloatingTimer() {
 
   const handleExpand = useCallback(() => {
     setMinimised(false);
+    setIsUrgentMini(false);
+    setIsPeeking(false);
     setWindowGen((g) => g + 1);
   }, []);
 
@@ -365,6 +408,7 @@ export function FloatingTimer() {
         hasNotifiedRef.current = false;
         hasAutoExpandedRef.current = false;
         lastNotifyElapsedRef.current = 0;
+        setIsUrgentMini(false);
         return;
       }
       setCountdownTarget(elapsedFromStart + minutes * 60);
@@ -372,6 +416,7 @@ export function FloatingTimer() {
       hasNotifiedRef.current = false;
       hasAutoExpandedRef.current = false;
       lastNotifyElapsedRef.current = elapsedFromStart;
+      setIsUrgentMini(false);
     },
     [elapsedFromStart, countdownPreset],
   );
@@ -383,16 +428,15 @@ export function FloatingTimer() {
     hasAutoExpandedRef.current = false;
     lastNotifyElapsedRef.current = 0;
     setIsFlashing(false);
+    setIsUrgentMini(false);
   }, []);
 
   const adjustCountdown = useCallback(
     (deltaMinutes: number) => {
       if (countdownTarget == null) return;
       const newTarget = countdownTarget + deltaMinutes * 60;
-      // Don't let it go below current elapsed + 60s (at least 1 min remaining)
       const minTarget = elapsedFromStart + 60;
       setCountdownTarget(Math.max(newTarget, minTarget));
-      // Update the preset label to reflect adjusted total minutes
       const totalMinutes = Math.round(Math.max(newTarget, minTarget) / 60);
       setCountdownPreset(totalMinutes);
       hasNotifiedRef.current = false;
@@ -407,6 +451,7 @@ export function FloatingTimer() {
 
   const handleStop = useCallback(() => {
     setIsFlashing(false);
+    setIsUrgentMini(false);
     pauseTimer();
   }, [pauseTimer]);
 
@@ -414,8 +459,9 @@ export function FloatingTimer() {
     setStrictMode((prev) => {
       const next = !prev;
       if (!next) {
-        // Switching to normal mode: stop flashing
         setIsFlashing(false);
+        setIsUrgentMini(false);
+        setIsPeeking(false);
       }
       return next;
     });
@@ -438,8 +484,16 @@ export function FloatingTimer() {
     'floating-timer',
     'ft-popup-mode',
     minimised ? 'ft-minimised' : '',
-    isFlashing && strictMode ? 'ft-strict-flash' : '',
-    isOvertime && strictMode ? 'ft-strict-overtime' : '',
+    isFlashing && strictMode && !minimised ? 'ft-strict-flash' : '',
+    isOvertime && strictMode && !minimised ? 'ft-strict-overtime' : '',
+  ].filter(Boolean).join(' ');
+
+  // Build mini-display class names
+  const miniClasses = [
+    'ft-mini-display',
+    isPeeking && strictMode ? 'ft-mini-peek' : '',
+    isUrgentMini && strictMode ? 'ft-mini-urgent' : '',
+    isOvertime && strictMode ? 'ft-mini-overtime' : '',
   ].filter(Boolean).join(' ');
 
   return createPortal(
@@ -449,7 +503,7 @@ export function FloatingTimer() {
       id="floating-timer"
     >
       {/* Mini pill display */}
-      <div className="ft-mini-display">
+      <div className={miniClasses}>
         <span className={`ft-mini-dot${timerPaused ? ' ft-mini-dot-paused' : ''}`} />
         <span className="ft-mini-task-name" title={task.title}>
           {task.title}

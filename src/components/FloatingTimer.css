@@ -478,3 +478,124 @@
   background: rgba(245, 158, 11, 0.3);
   color: #fff;
 }
+
+/* ========================================
+   Strict Mode – Mini-pill notification styles
+   ======================================== */
+
+/* --- 5-min checkpoint: purple flash on mini pill --- */
+@keyframes miniPeekFlash {
+  0% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  20% {
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.55) 0%, rgba(59, 62, 201, 0.45) 100%);
+    box-shadow: 0 0 18px 6px rgba(99, 102, 241, 0.45), inset 0 0 12px rgba(99, 102, 241, 0.15);
+  }
+  50% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  70% {
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.35) 0%, rgba(59, 62, 201, 0.3) 100%);
+    box-shadow: 0 0 12px 4px rgba(99, 102, 241, 0.3);
+  }
+  100% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+}
+
+/* --- ≤1 min remaining: red pulsing on mini pill --- */
+@keyframes miniUrgentPulse {
+  0% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.35) 0%, rgba(185, 28, 28, 0.3) 100%);
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.6) 0%, rgba(185, 28, 28, 0.5) 100%);
+    box-shadow: 0 0 20px 6px rgba(239, 68, 68, 0.5), inset 0 0 10px rgba(239, 68, 68, 0.1);
+  }
+  100% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.35) 0%, rgba(185, 28, 28, 0.3) 100%);
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.2);
+  }
+}
+
+/* --- overtime: aggressive red flash on mini pill --- */
+@keyframes miniOvertimeFlash {
+  0% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.3) 0%, rgba(185, 28, 28, 0.25) 100%);
+    box-shadow: none;
+  }
+  25% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.65) 0%, rgba(185, 28, 28, 0.55) 100%);
+    box-shadow: 0 0 24px 8px rgba(239, 68, 68, 0.5), inset 0 0 14px rgba(239, 68, 68, 0.12);
+  }
+  50% {
+    background: linear-gradient(145deg, rgba(20, 20, 35, 0.96) 0%, rgba(30, 25, 50, 0.94) 100%);
+    box-shadow: none;
+  }
+  75% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.55) 0%, rgba(185, 28, 28, 0.45) 100%);
+    box-shadow: 0 0 18px 6px rgba(239, 68, 68, 0.4);
+  }
+  100% {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.3) 0%, rgba(185, 28, 28, 0.25) 100%);
+    box-shadow: none;
+  }
+}
+
+/* --- Mini pill peek state (5-min checkpoint) --- */
+.ft-mini-display.ft-mini-peek {
+  animation: miniPeekFlash 1.2s ease-in-out 1;
+  border-radius: 4px;
+}
+
+.ft-mini-display.ft-mini-peek .ft-mini-time {
+  color: #a5b4fc !important;
+  text-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+}
+
+/* --- Mini pill urgent state (≤1 min remaining) --- */
+.ft-mini-display.ft-mini-urgent {
+  animation: miniUrgentPulse 1s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.ft-mini-display.ft-mini-urgent .ft-mini-time {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.ft-mini-display.ft-mini-urgent .ft-mini-dot {
+  background: #ef4444 !important;
+  animation: tickFlash 0.5s ease-in-out infinite !important;
+}
+
+.ft-mini-display.ft-mini-urgent .ft-mini-task-name {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* --- Mini pill overtime state (past deadline) --- */
+.ft-mini-display.ft-mini-overtime {
+  animation: miniOvertimeFlash 0.8s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.ft-mini-display.ft-mini-overtime .ft-mini-time {
+  color: #fca5a5 !important;
+  font-weight: 800 !important;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
+.ft-mini-display.ft-mini-overtime .ft-mini-dot {
+  background: #ef4444 !important;
+  animation: tickFlash 0.4s ease-in-out infinite !important;
+}
+
+.ft-mini-display.ft-mini-overtime .ft-mini-task-name {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
