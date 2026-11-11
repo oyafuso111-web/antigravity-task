@@ -6,6 +6,7 @@ import { fetchAndParseCalendar } from '../lib/calendarSync';
 
 export type AppTab = 'list' | 'calendar' | 'calendar2' | 'timeline' | 'reports';
 export type ColumnId = 'name' | 'project' | 'time' | 'estimatedMinutes' | 'tags' | 'priority' | 'date' | 'createdAt';
+export type NotificationVolume = 'off' | 'low' | 'medium' | 'high';
 
 interface TaskStore {
   tasks: Task[];
@@ -26,6 +27,7 @@ interface TaskStore {
   weekStartsOn: 0 | 1;
   showCompleted: boolean;
   isProjectDetailOpen: boolean;
+  notificationVolume: NotificationVolume;
 
   sortColumn: ColumnId | null;
   sortDirection: 'asc' | 'desc' | null;
@@ -64,6 +66,7 @@ interface TaskStore {
   setWeekStartsOn: (start: 0 | 1) => void;
   toggleShowCompleted: () => void;
   setProjectDetailOpen: (isOpen: boolean) => void;
+  cycleNotificationVolume: () => void;
   addProjectComment: (projectId: string, text: string) => void;
   updateProjectComment: (projectId: string, commentId: string, text: string) => void;
   deleteProjectComment: (projectId: string, commentId: string) => void;
@@ -401,6 +404,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   weekStartsOn: 0,
   showCompleted: true,
   isProjectDetailOpen: false,
+  notificationVolume: (localStorage.getItem('antigravity_notification_volume') as NotificationVolume) || 'low',
   columnOrder: ['name', 'project', 'time', 'estimatedMinutes', 'tags', 'priority', 'date', 'createdAt'],
   columnWidths: {
     name: 400,
@@ -721,6 +725,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setWeekStartsOn: (start) => set({ weekStartsOn: start }),
   toggleShowCompleted: () => set((state) => ({ showCompleted: !state.showCompleted })),
   setProjectDetailOpen: (isOpen) => set({ isProjectDetailOpen: isOpen }),
+  cycleNotificationVolume: () => set((state) => {
+    const order: NotificationVolume[] = ['off', 'low', 'medium', 'high'];
+    const idx = order.indexOf(state.notificationVolume);
+    const next = order[(idx + 1) % order.length];
+    try { localStorage.setItem('antigravity_notification_volume', next); } catch { /* */ }
+    return { notificationVolume: next };
+  }),
 
   addProjectComment: async (projectId, text) => {
     const user = await ensureAuthUser(get, set);

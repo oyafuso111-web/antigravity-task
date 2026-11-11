@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useTaskStore } from '../store/useTaskStore';
 import type { Task, Priority } from '../types';
 import { sortProjectsCustom } from '../utils/sortUtils';
+import { useDeferredSort } from '../utils/useDeferredSort';
 import {
   format,
   startOfWeek,
@@ -189,7 +190,7 @@ export const TimelineView: React.FC = () => {
   }, [tasks, filterProjectId]);
 
   // Sort tasks matching TaskListView order (same sort config + tag grouping in comparator)
-  const sortedTasks = useMemo(() => {
+  const sortedTasksRaw = useMemo(() => {
     const sorted = [...filteredTasks];
 
     // Helper: get first tag name for sort grouping
@@ -294,6 +295,10 @@ export const TimelineView: React.FC = () => {
 
     return sorted;
   }, [filteredTasks, projects, tags, sortColumn, sortDirection, secondarySortColumn, secondarySortDirection]);
+
+  // Defer re-ordering by 5 seconds so the user can still find and edit a task
+  // after changing its project / priority / date.
+  const sortedTasks = useDeferredSort(sortedTasksRaw, (t) => t.id);
 
   // Tasks without due date (for separate section) — only show uncompleted
   const unscheduledTasks = useMemo(() => {

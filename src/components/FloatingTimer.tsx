@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTaskStore } from '../store/useTaskStore';
+import type { NotificationVolume } from '../store/useTaskStore';
 
 import floatingTimerCssUrl from './FloatingTimer.css?url';
 
@@ -14,7 +15,19 @@ const formatTime = (totalSeconds: number): string => {
   return negative ? `-${base}` : base;
 };
 
-const playNotificationBeep = (win: Window) => {
+/** Map volume level to a gain value */
+const volumeGain = (vol: NotificationVolume): number => {
+  switch (vol) {
+    case 'off': return 0;
+    case 'low': return 0.3;    // original level
+    case 'medium': return 0.6;
+    case 'high': return 1.0;
+  }
+};
+
+const playNotificationBeep = (win: Window, vol: NotificationVolume) => {
+  if (vol === 'off') return;
+  const g = volumeGain(vol);
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = win as any;
@@ -28,7 +41,7 @@ const playNotificationBeep = (win: Window) => {
     osc.frequency.setValueAtTime(880, ctx.currentTime);
     osc.frequency.setValueAtTime(1108.73, ctx.currentTime + 0.15);
     osc.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.30);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.setValueAtTime(g, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.6);
@@ -40,7 +53,7 @@ const playNotificationBeep = (win: Window) => {
     osc2.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.7);
     osc2.frequency.setValueAtTime(1108.73, ctx.currentTime + 0.85);
     osc2.frequency.setValueAtTime(880, ctx.currentTime + 1.0);
-    gain2.gain.setValueAtTime(0.25, ctx.currentTime + 0.7);
+    gain2.gain.setValueAtTime(g * 0.83, ctx.currentTime + 0.7);
     gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.3);
     osc2.start(ctx.currentTime + 0.7);
     osc2.stop(ctx.currentTime + 1.3);
@@ -50,7 +63,9 @@ const playNotificationBeep = (win: Window) => {
 };
 
 // Two-tone alert beep for 5-min checkpoints (louder, more noticeable)
-const playCheckpointBeep = (win: Window) => {
+const playCheckpointBeep = (win: Window, vol: NotificationVolume) => {
+  if (vol === 'off') return;
+  const g = volumeGain(vol);
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = win as any;
@@ -63,7 +78,7 @@ const playCheckpointBeep = (win: Window) => {
     gain1.connect(ctx.destination);
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(880, ctx.currentTime);
-    gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain1.gain.setValueAtTime(g, ctx.currentTime);
     gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
     osc1.start(ctx.currentTime);
     osc1.stop(ctx.currentTime + 0.25);
@@ -74,7 +89,7 @@ const playCheckpointBeep = (win: Window) => {
     gain2.connect(ctx.destination);
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(1046.5, ctx.currentTime + 0.35);
-    gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.35);
+    gain2.gain.setValueAtTime(g, ctx.currentTime + 0.35);
     gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
     osc2.start(ctx.currentTime + 0.35);
     osc2.stop(ctx.currentTime + 0.6);
@@ -120,6 +135,7 @@ export function FloatingTimer() {
     timerPaused,
     timerPausedElapsed,
     pauseResumeTimer,
+    notificationVolume,
   } = useTaskStore();
 
   const [minimised, setMinimised] = useState(false);
@@ -174,13 +190,11 @@ export function FloatingTimer() {
   const isOvertime = countdownRemaining != null && countdownRemaining < 0;
 
   // ── Helper: bring PiP window to foreground ──
+  // NOTE: We no longer call win.focus() because it steals focus from the
+  // main window, preventing text input (task name, details, subtasks).
+  // Visual/audio cues (flash, beep) are sufficient to draw attention.
   const focusPipWindow = useCallback(() => {
-    try {
-      const win = pipWindowRef.current;
-      if (win && !win.closed) {
-        win.focus();
-      }
-    } catch { /* cross-origin or closed */ }
+    // intentionally no-op – visual & audio alerts handle notification
   }, []);
 
   // ── Helper: trigger flash animation (full-size window) ──
@@ -218,15 +232,15 @@ export function FloatingTimer() {
         // Flash the mini pill to draw attention + short beep
         triggerPeek();
         const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-        playCheckpointBeep(targetWin);
+        playCheckpointBeep(targetWin, notificationVolume);
       } else {
         // Flash the full window + play beep
         triggerFlash();
         const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-        playCheckpointBeep(targetWin);
+        playCheckpointBeep(targetWin, notificationVolume);
       }
     }
-  }, [elapsedFromStart, strictMode, countdownTarget, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash, triggerPeek]);
+  }, [elapsedFromStart, strictMode, countdownTarget, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash, triggerPeek, notificationVolume]);
 
   // ── Strict mode: urgent mini at 1 minute remaining ──
   useEffect(() => {
@@ -241,13 +255,13 @@ export function FloatingTimer() {
         // visually urgent with red flashing + a beep
         setIsUrgentMini(true);
         const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-        playCheckpointBeep(targetWin);
+        playCheckpointBeep(targetWin, notificationVolume);
       } else {
         // Full window is visible — trigger flash
         triggerFlash();
       }
     }
-  }, [countdownRemaining, strictMode, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash]);
+  }, [countdownRemaining, strictMode, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash, notificationVolume]);
 
   // ── Strict mode: continuous flash during overtime ──
   useEffect(() => {
@@ -408,10 +422,10 @@ export function FloatingTimer() {
     if (countdownRemaining !== null && countdownRemaining <= 0 && !hasNotifiedRef.current) {
       hasNotifiedRef.current = true;
       const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-      playNotificationBeep(targetWin);
+      playNotificationBeep(targetWin, notificationVolume);
       focusPipWindow();
     }
-  }, [countdownRemaining, focusPipWindow]);
+  }, [countdownRemaining, focusPipWindow, notificationVolume]);
 
   // ── Handlers ──
   const handlePreset = useCallback(

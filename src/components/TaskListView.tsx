@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { sortProjectsCustom } from '../utils/sortUtils';
+import { useDeferredSort } from '../utils/useDeferredSort';
 import {
   isToday,
   isTomorrow,
@@ -388,7 +389,7 @@ export const TaskListView: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleGlobalKeyDown]);
 
-  const activeTasks = useMemo(() => {
+  const activeTasksSorted = useMemo(() => {
     const filtered = tasks.filter(t => {
       if (activeProjectId === 'completed') {
         return t.completed;
@@ -588,6 +589,10 @@ export const TaskListView: React.FC = () => {
 
     return filtered;
   }, [tasks, activeProjectId, sortColumn, sortDirection, secondarySortColumn, secondarySortDirection, projects, tags]);
+
+  // Defer re-ordering by 5 seconds so the user can still find and edit a task
+  // after changing its project / priority / date.
+  const activeTasks = useDeferredSort(activeTasksSorted, (t) => t.id);
 
   const completedTasks = useMemo(() => {
     if (!showCompleted || activeProjectId === 'completed') return [];

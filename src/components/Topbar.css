@@ -135,6 +135,17 @@
   font-size: 0.8125rem;
 }
 
+/* ─── Notification Volume Button ─── */
+.notification-vol-on {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.06));
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.notification-vol-on:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1));
+}
+
 /* ─── Search Bar ─── */
 .search-wrapper {
   position: relative;

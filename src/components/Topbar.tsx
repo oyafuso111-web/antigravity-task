@@ -9,7 +9,7 @@ type SearchResult =
   | { kind: 'project'; project: Project };
 
 export const Topbar: React.FC = () => {
-  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, selectedTaskId, setSelectedTaskId, user, signInWithGoogle, showCompleted, toggleShowCompleted, isProjectDetailOpen, setProjectDetailOpen } = useTaskStore();
+  const { activeTab, setActiveTab, setSettingsOpen, addTask, activeProjectId, projects, tasks, setActiveProject, setHighlightedTaskId, setTimelineJumpTaskId, selectedTaskId, setSelectedTaskId, user, signInWithGoogle, showCompleted, toggleShowCompleted, isProjectDetailOpen, setProjectDetailOpen, notificationVolume, cycleNotificationVolume } = useTaskStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
@@ -298,6 +298,21 @@ export const Topbar: React.FC = () => {
             <span className="toggle-completed-label">{isProjectDetailOpen ? '詳細を閉じる' : 'プロジェクト詳細'}</span>
           </button>
         )}
+
+        {/* Notification Volume */}
+        <button
+          id="notification-volume-btn"
+          className={`toggle-completed-btn${notificationVolume !== 'off' ? ' notification-vol-on' : ''}`}
+          onClick={cycleNotificationVolume}
+          title={`通知音: ${notificationVolume === 'off' ? '切' : notificationVolume === 'low' ? '小' : notificationVolume === 'medium' ? '中' : '大'}`}
+        >
+          <span className="toggle-completed-icon">
+            {notificationVolume === 'off' ? '🔇' : notificationVolume === 'low' ? '🔈' : notificationVolume === 'medium' ? '🔉' : '🔊'}
+          </span>
+          <span className="toggle-completed-label">
+            通知音:{notificationVolume === 'off' ? '切' : notificationVolume === 'low' ? '小' : notificationVolume === 'medium' ? '中' : '大'}
+          </span>
+        </button>
 
         {/* Toggle Completed Tasks */}
         <button
