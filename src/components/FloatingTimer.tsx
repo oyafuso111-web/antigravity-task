@@ -19,8 +19,8 @@ const formatTime = (totalSeconds: number): string => {
 const volumeGain = (vol: NotificationVolume): number => {
   switch (vol) {
     case 'off': return 0;
-    case 'low': return 0.3;    // original level
-    case 'medium': return 0.6;
+    case 'low': return 0.4;
+    case 'medium': return 0.7;
     case 'high': return 1.0;
   }
 };
@@ -231,13 +231,11 @@ export function FloatingTimer() {
       if (minimised) {
         // Flash the mini pill to draw attention + short beep
         triggerPeek();
-        const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-        playCheckpointBeep(targetWin, notificationVolume);
+        playCheckpointBeep(window, notificationVolume);
       } else {
         // Flash the full window + play beep
         triggerFlash();
-        const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-        playCheckpointBeep(targetWin, notificationVolume);
+        playCheckpointBeep(window, notificationVolume);
       }
     }
   }, [elapsedFromStart, strictMode, countdownTarget, timerPaused, activeTimerTaskId, minimised, focusPipWindow, triggerFlash, triggerPeek, notificationVolume]);
@@ -254,8 +252,7 @@ export function FloatingTimer() {
         // Can't resize the window programmatically, so make the mini pill
         // visually urgent with red flashing + a beep
         setIsUrgentMini(true);
-        const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-        playCheckpointBeep(targetWin, notificationVolume);
+        playCheckpointBeep(window, notificationVolume);
       } else {
         // Full window is visible — trigger flash
         triggerFlash();
@@ -421,8 +418,7 @@ export function FloatingTimer() {
   useEffect(() => {
     if (countdownRemaining !== null && countdownRemaining <= 0 && !hasNotifiedRef.current) {
       hasNotifiedRef.current = true;
-      const targetWin = pipWindowRef.current && !pipWindowRef.current.closed ? pipWindowRef.current : window;
-      playNotificationBeep(targetWin, notificationVolume);
+      playNotificationBeep(window, notificationVolume);
       focusPipWindow();
     }
   }, [countdownRemaining, focusPipWindow, notificationVolume]);
